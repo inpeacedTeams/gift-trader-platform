@@ -16,7 +16,7 @@ class SyncReport:
 
 async def sync_market(settings: Settings | None = None) -> SyncReport:
     settings = settings or get_settings()
-    result = await collect(build_parsers(getgems_collections=settings.getgems_collection_addresses, settings=settings))
+    result = await collect(build_parsers(getgems_collections=settings.getgems_collection_list, settings=settings))
     async with SessionLocal() as session:
         snapshot_repo = MarketSnapshotRepository(session)
         status_repo = SourceStatusRepository(session)
