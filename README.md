@@ -19,13 +19,39 @@ The API currently has three independent live collectors:
 
 TONAPI is an additional source and verification layer, not the only marketplace parser. If a source is unavailable or changes its response, the API returns `status=unavailable` with the source error. It never invents listings or silently falls back to demo data.
 
-## Run
+## Run locally
 
 ```bash
+git clone https://github.com/inpeacedTeams/gift-trader-platform.git
+cd gift-trader-platform
+cp .env.example .env
+# Set DATABASE_URL, JWT_SECRET, TELEGRAM_BOT_TOKEN, and TONAPI_TOKEN
+
+docker compose up -d postgres
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 uvicorn app.main:app --reload
 ```
 
-Live snapshots are available at `GET /api/markets/snapshots?collection=<TON_COLLECTION_ADDRESS>`.
+The frontend runs separately from `web` with `npm ci && npm run dev`.
+
+## Verification
+
+```bash
+ruff check app tests
+pytest -q
+cd web && npm ci && npm run build
+```
+
+GitHub Actions runs the same backend lint/tests and frontend build for pushes and pull requests to `main`.
+
+## Key endpoints
+
+- `GET /api/markets/snapshots`: live source snapshots, persisted to PostgreSQL
+- `GET /api/gifts`: persisted catalog with search and pagination
+- `GET /api/gifts/{id}/history`: price history
+- `GET /api/arbitrage`: fee-aware live opportunities
+- `GET /api/portfolio/overview`: TONAPI holdings and valuation
+- `GET /api/portfolio/history`: persisted portfolio valuation history
+- `GET /api/alerts/events`: user alert events
