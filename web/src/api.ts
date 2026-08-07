@@ -13,6 +13,7 @@ export const getWallets = () => request<{ items: { id: number; address: string; 
 export const addWallet = (address: string, label?: string) => request("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) });
 export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<{ data_mode: string; total_assets: number; estimated_nft_value_ton: string; wallets: { wallet_id: number; address: string; label?: string | null; ton_balance: string; nfts: { nft_address: string; name?: string; estimated_price_ton?: string | null }[] }[]; unavailable: { wallet_id: number; address: string; error: string }[] }>("/portfolio/overview");
+export const getPortfolioHistory = () => request<{ data_mode: string; points: { observed_at: string; total_ton: string; ton_balance: string; nft_value_ton: string; asset_count: number }[] }>("/portfolio/history");
 export const getAlertRules = () => request<{ items: { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean }[] }>("/alerts/rules");
 export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request("/alerts/rules", { method: "POST", body: JSON.stringify(payload) });
 export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" });
