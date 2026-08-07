@@ -27,15 +27,17 @@ class PortalsParser(MarketParser):
                 price = Decimal(str(raw_price))
             except Exception:
                 continue
-            listing_id = str(row.get("id") or row.get("tg_id") or row.get("address") or "")
+            canonical = row.get("address") or row.get("nft_address") or row.get("nft_item_address")
+            listing_id = str(row.get("id") or row.get("tg_id") or canonical or "")
             if not listing_id or price <= 0:
                 continue
             item_url = row.get("url") or row.get("link")
             listings.append(Listing(
                 marketplace="portals", listing_id=listing_id, gift_id=str(row.get("tg_id") or listing_id),
+                canonical_id=str(canonical) if canonical else None,
                 collection_id=str(row.get("collection_id")) if row.get("collection_id") else None,
-                name=row.get("name"), price_ton=price,
-                url=HttpUrl(item_url) if item_url else None,
+                collection_name=row.get("collection_name"), name=row.get("name"), model=row.get("model"),
+                price_ton=price, url=HttpUrl(item_url) if item_url else None,
                 seller=str(row.get("owner_id")) if row.get("owner_id") else None,
                 observed_at=now, source_url=HttpUrl(self.endpoint),
             ))
