@@ -24,6 +24,7 @@ async def snapshots(collection: list[str] = Query(default=[]), portals_endpoint:
         await status_repo.record_success(snapshot.marketplace, len(snapshot.listings))
     for item in result.unavailable:
         await status_repo.record_failure(item["marketplace"], item["reason"])
+    await session.commit()
     unavailable = [{"marketplace": item["marketplace"], "error": item["reason"], "listings": []} for item in result.unavailable]
     return MarketsResponse(markets=[snapshot.model_dump() for snapshot in result.snapshots], unavailable=unavailable)
 
