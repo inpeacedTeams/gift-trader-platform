@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     cors_origins: str = "http://localhost:5173"
     database_url: str = "postgresql+asyncpg://gift_trader:gift_trader@localhost:5432/gift_trader"
+    jwt_secret: str = "change-me-in-production"
+    jwt_ttl_seconds: int = 604800
+    telegram_bot_token: str | None = None
     tonapi_base_url: str = "https://tonapi.io"
     tonapi_token: str | None = None
     portals_endpoint: str = "https://portal-market.com/api"
