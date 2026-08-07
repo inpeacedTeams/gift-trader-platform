@@ -15,3 +15,14 @@ class PortfolioHolding(Base):
     estimated_price_ton: Mapped[Decimal | None] = mapped_column(Numeric(24, 9))
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     __table_args__ = (UniqueConstraint("wallet_id", "nft_address", name="uq_portfolio_wallet_nft"), Index("ix_portfolio_holdings_wallet_time", "wallet_id", "observed_at"))
+
+class PortfolioValuation(Base):
+    __tablename__ = "portfolio_valuations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    total_ton: Mapped[Decimal] = mapped_column(Numeric(24, 9))
+    ton_balance: Mapped[Decimal] = mapped_column(Numeric(24, 9))
+    nft_value_ton: Mapped[Decimal] = mapped_column(Numeric(24, 9))
+    asset_count: Mapped[int] = mapped_column(default=0)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    __table_args__ = (Index("ix_portfolio_valuations_user_time", "user_id", "observed_at"),)
