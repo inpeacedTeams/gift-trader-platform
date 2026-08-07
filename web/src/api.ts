@@ -10,7 +10,7 @@ export const getWatchlist = () => request<{ items: { id: number; gift_id: number
 export const addToWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "POST" });
 export const removeFromWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "DELETE" });
 export const getWallets = () => request<{ items: { id: number; address: string; label?: string | null }[] }>("/portfolio/wallets");
-export const addWallet = (address: string, label?: string) => request("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) );
+export const addWallet = (address: string, label?: string) => request("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) });
 export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<{ data_mode: string; total_assets: number; estimated_nft_value_ton: string; wallets: { wallet_id: number; address: string; label?: string | null; ton_balance: string; nfts: { nft_address: string; name?: string; estimated_price_ton?: string | null }[] }[]; unavailable: { wallet_id: number; address: string; error: string }[] }>("/portfolio/overview");
 export const getAlertRules = () => request<{ items: { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean }[] }>("/alerts/rules");
