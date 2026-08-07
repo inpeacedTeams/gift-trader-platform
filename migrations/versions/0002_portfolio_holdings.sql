@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS portfolio_holdings (id BIGSERIAL PRIMARY KEY, wallet_id BIGINT NOT NULL REFERENCES portfolio_wallets(id) ON DELETE CASCADE, nft_address VARCHAR(128) NOT NULL, collection_address VARCHAR(128), name VARCHAR(255), image_url TEXT, estimated_price_ton NUMERIC(24,9), observed_at TIMESTAMPTZ NOT NULL, CONSTRAINT uq_portfolio_wallet_nft UNIQUE (wallet_id, nft_address));
+CREATE INDEX IF NOT EXISTS ix_portfolio_holdings_wallet_time ON portfolio_holdings(wallet_id, observed_at);
