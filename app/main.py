@@ -1,5 +1,7 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from app.core.config import get_settings
 from app.routes.arbitrage import router as arbitrage_router
 from app.routes.markets import router as markets_router
 
@@ -8,10 +10,13 @@ class ServiceStatus(BaseModel):
     status: str
     data_mode: str
 
-app = FastAPI(title="Gift Trader API", version="0.1.0")
-app.include_router(markets_router, prefix="/api")
-app.include_router(arbitrage_router, prefix="/api")
+settings = get_settings()
+app = FastAPI(title=settings.app_name, version="0.1.0")
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["GET"], allow_headers=["Accept", "Content-Type"])
+app.include_router(markets_router, prefix=settings.api_prefix)
+app.include_router(arbitrage_router, prefix=settings.api_prefix)
 
 @app.get("/health", response_model=ServiceStatus)
+@app.get("/api/health", response_model=ServiceStatus)
 async def health() -> ServiceStatus:
-    return ServiceStatus(service="gift-trader-api", status="ok", data_mode="live-only")
+    return ServiceStatus(service=settings.app_name, status="ok", data_mode="live-only")
