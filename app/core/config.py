@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     source_backoff_seconds: float = 0.5
     market_sync_interval_seconds: int = 300
     market_sync_enabled: bool = True
+    portfolio_sync_interval_seconds: int = 300
+    portfolio_sync_enabled: bool = True
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
     @property
     def cors_origin_list(self) -> list[str]:
