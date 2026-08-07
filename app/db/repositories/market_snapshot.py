@@ -1,10 +1,10 @@
 from collections import defaultdict
 from datetime import datetime, timezone
-from decimal import Decimal
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Collection, Gift, Listing, PriceSnapshot
+from app.db.models import Gift, Listing, PriceSnapshot
 from app.market.models import MarketSnapshot
+from app.market.normalize import normalize_snapshot
 
 class MarketSnapshotRepository:
     def __init__(self, session: AsyncSession):
@@ -12,15 +12,16 @@ class MarketSnapshotRepository:
 
     async def persist(self, snapshot: MarketSnapshot) -> int:
         now = datetime.now(timezone.utc)
-        persisted = 0
+        normalized = normalize_snapshot(snapshot)
         grouped: dict[str, list] = defaultdict(list)
-        for item in snapshot.listings:
-            grouped[item.canonical_id or item.gift_id].append(item)
+        for item in normalized.listings:
+            grouped[item.gift_key].append(item.listing)
+        persisted = 0
         for key, listings in grouped.items():
             gift = await self._get_or_create_gift(key, listings[0])
             prices = [item.price_ton for item in listings]
-            floor = min(prices) if prices else None
-            median = sorted(prices)[len(prices) // 2] if prices else None
+            floor = min(prices)
+            median = sorted(prices)[len(prices) // 2]
             self.session.add(PriceSnapshot(gift_id=gift.id, marketplace=snapshot.marketplace, observed_at=snapshot.observed_at, floor_ton=floor, median_ton=median, volume_ton=None, listings_count=len(listings), source_url=str(snapshot.source_url)))
             for item in listings:
                 listing = await self.session.scalar(select(Listing).where(Listing.marketplace == item.marketplace, Listing.external_id == item.listing_id))
