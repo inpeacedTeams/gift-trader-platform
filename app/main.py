@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.core.config import get_settings
+from app.portfolio.sync import sync_portfolios
 from app.routes.analytics import router as analytics_router
 from app.routes.arbitrage import router as arbitrage_router
 from app.routes.auth import router as auth_router
@@ -23,14 +24,18 @@ class ServiceStatus(BaseModel):
     data_mode: str
 
 settings = get_settings()
-scheduler = MarketScheduler(sync_market, settings.market_sync_interval_seconds)
+market_scheduler = MarketScheduler(sync_market, settings.market_sync_interval_seconds)
+portfolio_scheduler = MarketScheduler(sync_portfolios, settings.portfolio_sync_interval_seconds)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.market_sync_enabled:
-        await scheduler.start()
+        await market_scheduler.start()
+    if settings.portfolio_sync_enabled:
+        await portfolio_scheduler.start()
     yield
-    await scheduler.stop()
+    await market_scheduler.stop()
+    await portfolio_scheduler.stop()
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["GET", "POST", "DELETE"], allow_headers=["Accept", "Content-Type", "Authorization"])
