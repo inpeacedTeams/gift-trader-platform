@@ -1,6 +1,7 @@
 from collections import defaultdict
 from decimal import Decimal
 from pydantic import BaseModel, Field
+from .identity import canonical_gift_key
 from .models import Listing, MarketSnapshot
 
 class MarketplaceCosts(BaseModel):
@@ -23,16 +24,13 @@ class ArbitrageOpportunity(BaseModel):
     profit_percent: Decimal
     observed_at: str
 
-def gift_key(listing: Listing) -> str:
-    if listing.collection_id:
-        return f"collection:{listing.collection_id}:gift:{listing.gift_id}"
-    return f"gift:{listing.gift_id}"
-
 def find_arbitrage(snapshots: list[MarketSnapshot], costs: dict[str, MarketplaceCosts], *, min_profit_ton: Decimal = Decimal("0"), min_profit_percent: Decimal = Decimal("0")) -> list[ArbitrageOpportunity]:
     grouped: dict[str, list[Listing]] = defaultdict(list)
     for snapshot in snapshots:
         for listing in snapshot.listings:
-            grouped[gift_key(listing)].append(listing)
+            key = canonical_gift_key(listing)
+            if not key.startswith("unresolved:"):
+                grouped[key].append(listing)
     opportunities: list[ArbitrageOpportunity] = []
     for key, listings in grouped.items():
         for buy in listings:
