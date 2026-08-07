@@ -1,0 +1,5 @@
+import { Star, Trash2 } from "lucide-react";
+import type { Snapshot } from "../types";
+import { EmptyState } from "../components/State";
+
+export function Watchlist({ markets }: { markets: Snapshot[] }) { const listings = markets.flatMap(m => m.listings.map(l => ({ ...l, market: m.marketplace }))).slice(0, 20); return <section className="page-section"><div className="section-head"><div><p className="eyebrow">PERSONAL RADAR</p><h2>Watchlist</h2></div><button className="outline-btn"><Star size={15}/> Add gift</button></div>{listings.length ? <div className="watch-grid">{listings.map(item => <article className="watch-card" key={`${item.marketplace}-${item.listing_id}`}><div className="watch-top"><span className="gift-icon">✦</span><button aria-label="Remove from watchlist"><Trash2 size={15}/></button></div><h3>{item.name || item.gift_id.slice(0, 14)}</h3><strong>{item.price_ton} TON</strong><small>{item.marketplace} · observed {new Date(item.observed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></article>)}</div> : <EmptyState title="Your watchlist is empty" detail="Add verified gifts here once live listings arrive."/>}</section>; }
