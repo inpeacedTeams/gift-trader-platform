@@ -10,6 +10,7 @@ from app.routes.gifts import router as gifts_router
 from app.routes.history import router as history_router
 from app.routes.jobs import router as jobs_router
 from app.routes.markets import router as markets_router
+from app.routes.portfolio import router as portfolio_router
 from app.routes.source_status import router as source_status_router
 from app.routes.trends import router as trends_router
 from app.routes.user_features import router as user_features_router
@@ -43,6 +44,7 @@ app.include_router(source_status_router, prefix=settings.api_prefix)
 app.include_router(jobs_router, prefix=settings.api_prefix)
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(user_features_router, prefix=settings.api_prefix)
+app.include_router(portfolio_router, prefix=settings.api_prefix)
 
 @app.get("/health", response_model=ServiceStatus)
 @app.get("/api/health", response_model=ServiceStatus)
