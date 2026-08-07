@@ -40,6 +40,7 @@ class GiftDetail(GiftCard):
     sources: list[str]
 
 class PricePoint(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     observed_at: datetime
     marketplace: str
     floor_ton: Decimal | None
