@@ -34,6 +34,13 @@ def strip_rarity(value: Any) -> str | None:
     return RARITY_SUFFIX.sub("", str(value)).strip() or None
 
 
+def gift_slug(gift_name: str | None) -> str | None:
+    """'Plush Pepe' -> 'PlushPepe', the slug used by Telegram gift URLs."""
+    if not gift_name:
+        return None
+    return re.sub(r"[^A-Za-z0-9]", "", gift_name) or None
+
+
 class TonnelParser(MarketParser):
     """Public Tonnel listings. Browsing needs no credentials."""
 
@@ -72,12 +79,22 @@ class TonnelParser(MarketParser):
         return []
 
     @staticmethod
-    def _url(gift_name: str | None, gift_number: int | None) -> HttpUrl:
-        if gift_name and gift_number is not None:
-            slug = re.sub(r"[^A-Za-z0-9]", "", gift_name)
-            if slug:
-                return HttpUrl(f"https://t.me/nft/{slug}-{gift_number}")
+    def _url(slug: str | None, gift_number: int | None) -> HttpUrl:
+        if slug and gift_number is not None:
+            return HttpUrl(f"https://t.me/nft/{slug}-{gift_number}")
         return HttpUrl("https://market.tonnel.network/")
+
+    @staticmethod
+    def _image(row: dict[str, Any], slug: str | None, gift_number: int | None) -> HttpUrl | None:
+        for key in ("photo_url", "image_url", "image"):
+            value = row.get(key)
+            if value:
+                return HttpUrl(str(value))
+        if slug and gift_number is not None:
+            return HttpUrl(
+                f"https://nft.fragment.com/gift/{slug.lower()}-{gift_number}.medium.jpg"
+            )
+        return None
 
     @staticmethod
     def _gift_number(row: dict[str, Any]) -> int | None:
@@ -103,6 +120,7 @@ class TonnelParser(MarketParser):
             return None
         gift_name = row.get("gift_name") or row.get("name")
         gift_number = self._gift_number(row)
+        slug = gift_slug(gift_name)
         return Listing(
             marketplace="tonnel",
             listing_id=listing_id,
@@ -112,8 +130,9 @@ class TonnelParser(MarketParser):
             gift_number=gift_number,
             name=gift_name,
             model=strip_rarity(row.get("model")),
+            image_url=self._image(row, slug, gift_number),
             price_ton=price,
-            url=self._url(gift_name, gift_number),
+            url=self._url(slug, gift_number),
             seller=str(row.get("owner")) if row.get("owner") else None,
             observed_at=now,
             source_url=HttpUrl(self.endpoint),

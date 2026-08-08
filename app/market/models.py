@@ -17,6 +17,7 @@ class Listing(BaseModel):
     gift_number: int | None = Field(default=None, ge=0)
     name: str | None = None
     model: str | None = None
+    image_url: HttpUrl | None = None
     price_ton: Decimal = Field(gt=0)
     url: HttpUrl | None = None
     seller: str | None = None
