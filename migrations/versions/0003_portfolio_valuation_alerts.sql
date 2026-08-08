@@ -1,2 +1,0 @@
-CREATE TABLE IF NOT EXISTS portfolio_valuations (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, total_ton NUMERIC(24,9) NOT NULL, ton_balance NUMERIC(24,9) NOT NULL, nft_value_ton NUMERIC(24,9) NOT NULL, asset_count INTEGER NOT NULL DEFAULT 0, observed_at TIMESTAMPTZ NOT NULL);
-CREATE INDEX IF NOT EXISTS ix_portfolio_valuations_user_time ON portfolio_valuations(user_id, observed_at);
