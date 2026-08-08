@@ -11,7 +11,8 @@ from .models import Listing, MarketSnapshot, SourceUnavailable
 
 NANOTON = Decimal(1_000_000_000)
 PAGE_LIMIT = 100
-MAX_PAGES = 20
+# Enough for a 20k item collection; a stop that only triggers on a broken cursor.
+HARD_PAGE_CAP = 200
 
 
 class GetGemsParser(MarketParser):
@@ -23,11 +24,13 @@ class GetGemsParser(MarketParser):
         collection_addresses: list[str],
         tonapi_base: str = "https://tonapi.io",
         api_token: str | None = None,
+        max_pages: int = HARD_PAGE_CAP,
     ):
         self.http = http
         self.collection_addresses = collection_addresses
         self.tonapi_base = tonapi_base.rstrip("/")
         self.api_token = api_token
+        self.max_pages = max(1, min(max_pages, HARD_PAGE_CAP))
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -56,7 +59,7 @@ class GetGemsParser(MarketParser):
 
     async def _items(self, address: str) -> AsyncIterator[tuple[str, dict[str, Any]]]:
         source = f"{self.tonapi_base}/v2/nfts/collections/{address}/items"
-        for page in range(MAX_PAGES):
+        for page in range(self.max_pages):
             payload = await self.http.get_json(
                 "getgems",
                 source,
@@ -104,6 +107,9 @@ class GetGemsParser(MarketParser):
                         or metadata.get("collection_name"),
                         name=metadata.get("name"),
                         model=metadata.get("model"),
+                        image_url=HttpUrl(str(metadata["image"]))
+                        if metadata.get("image")
+                        else None,
                         price_ton=price_ton,
                         url=HttpUrl(f"https://getgems.io/nft/{nft_address}"),
                         seller=str(owner.get("address")) if owner.get("address") else None,

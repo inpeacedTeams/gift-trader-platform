@@ -28,12 +28,15 @@ def build_parsers(
         backoff_seconds=settings.source_backoff_seconds,
     )
     builders: dict[str, Callable[[], MarketParser]] = {
-        "tonnel": lambda: TonnelParser(http, settings.tonnel_endpoint),
+        "tonnel": lambda: TonnelParser(
+            http, settings.tonnel_endpoint, max_pages=settings.crawl_max_pages
+        ),
         "getgems": lambda: GetGemsParser(
             http,
             collections,
             settings.tonapi_base_url,
             api_token=settings.tonapi_token,
+            max_pages=settings.crawl_max_pages,
         ),
         "portals": lambda: PortalsParser(
             http,

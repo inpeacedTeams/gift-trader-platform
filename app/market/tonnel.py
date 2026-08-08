@@ -11,8 +11,10 @@ from .http import MarketHttp
 from .models import Listing, MarketSnapshot
 
 DEFAULT_ENDPOINT = "https://gifts2.tonnel.network/api/pageGifts"
+# 30 is the hard server side maximum, larger values return an error.
 PAGE_LIMIT = 30
-MAX_PAGES = 10
+# Safety stop. Reaching it means the cursor is broken, not that the market is huge.
+HARD_PAGE_CAP = 400
 RARITY_SUFFIX = re.compile(r"\s*\([0-9.]+%\)\s*$")
 BASE_FILTER = {
     "price": {"$exists": True},
@@ -21,7 +23,9 @@ BASE_FILTER = {
     "export_at": {"$exists": True},
     "asset": "TON",
 }
-SORT_BY_NEWEST = {"message_post_time": -1, "gift_id": -1}
+# Cheapest first is a stable order: new listings appear at a predictable place
+# instead of shifting every row like a recency sort does.
+SORT_BY_PRICE = {"price": 1, "gift_id": -1}
 
 
 def strip_rarity(value: Any) -> str | None:
@@ -46,9 +50,15 @@ class TonnelParser(MarketParser):
 
     marketplace = "tonnel"
 
-    def __init__(self, http: MarketHttp, endpoint: str = DEFAULT_ENDPOINT):
+    def __init__(
+        self,
+        http: MarketHttp,
+        endpoint: str = DEFAULT_ENDPOINT,
+        max_pages: int = HARD_PAGE_CAP,
+    ):
         self.http = http
         self.endpoint = endpoint or DEFAULT_ENDPOINT
+        self.max_pages = max(1, min(max_pages, HARD_PAGE_CAP))
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -61,7 +71,7 @@ class TonnelParser(MarketParser):
         return {
             "page": page,
             "limit": PAGE_LIMIT,
-            "sort": json.dumps(SORT_BY_NEWEST),
+            "sort": json.dumps(SORT_BY_PRICE),
             "filter": json.dumps(BASE_FILTER),
             "price_range": None,
             "user_auth": "",
@@ -139,20 +149,33 @@ class TonnelParser(MarketParser):
         )
 
     async def snapshot(self) -> MarketSnapshot:
+        """Walk every page until the book runs out.
+
+        Two stop conditions matter: a short page means the end, and a page
+        that only repeats ids we already hold means the cursor is stuck,
+        which happens when listings shift between requests.
+        """
         now = datetime.now(timezone.utc)
         listings: list[Listing] = []
-        for page in range(1, MAX_PAGES + 1):
+        seen: set[str] = set()
+        for page in range(1, self.max_pages + 1):
             payload = await self.http.post_json(
                 "tonnel", self.endpoint, headers=self._headers, json_body=self._payload(page)
             )
             rows = self._rows(payload)
+            if not rows:
+                break
+            fresh = 0
             for row in rows:
                 if not isinstance(row, dict):
                     continue
                 listing = self._listing(row, now)
-                if listing is not None:
-                    listings.append(listing)
-            if len(rows) < PAGE_LIMIT:
+                if listing is None or listing.listing_id in seen:
+                    continue
+                seen.add(listing.listing_id)
+                listings.append(listing)
+                fresh += 1
+            if fresh == 0 or len(rows) < PAGE_LIMIT:
                 break
         return MarketSnapshot(
             marketplace="tonnel",
