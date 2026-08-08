@@ -1,0 +1,158 @@
+.ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #171f2b, #10151c);
+}
+
+.ai-card.guest,
+.ai-card.thinking {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  color: #8793a3;
+}
+
+.ai-card.guest p,
+.ai-card.thinking p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.ai-card svg {
+  color: #9cbaff;
+}
+
+.ai-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-card-head > div {
+  flex: 1;
+}
+
+.ai-card-head strong {
+  display: block;
+  font-size: 13px;
+  color: #e8edf5;
+}
+
+.ai-card-head small {
+  display: block;
+  margin-top: 3px;
+  color: #8793a3;
+  font-size: 11px;
+}
+
+.ai-answer {
+  margin: 0;
+  color: #d3dae4;
+  font-size: 13px;
+  line-height: 1.6;
+  animation: ai-in 0.3s ease-out both;
+}
+
+.ai-error {
+  margin: 8px 0 0;
+  color: #f2abb2;
+  font-size: 12px;
+}
+
+.ai-form {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.18s ease;
+}
+
+.ai-form:focus-within {
+  border-color: rgba(125, 167, 255, 0.45);
+}
+
+.ai-form input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+}
+
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ai-chip {
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: #0c1118;
+  color: #8b98a9;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.ai-chip:hover:not(:disabled) {
+  color: #9cbaff;
+  border-color: rgba(125, 167, 255, 0.4);
+}
+
+.ai-thread {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-turn {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #10151c;
+  animation: ai-in 0.3s ease-out both;
+}
+
+.ai-turn strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #9cbaff;
+}
+
+.ai-turn p {
+  margin: 0;
+  color: #d3dae4;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@keyframes ai-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-answer,
+  .ai-turn {
+    animation: none;
+  }
+  .ai-form,
+  .ai-chip {
+    transition: none;
+  }
+}
