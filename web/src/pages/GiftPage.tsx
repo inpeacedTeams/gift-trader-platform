@@ -4,6 +4,7 @@ import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
+import { Liquidity } from "../components/Liquidity";
 import { PriceChart } from "../components/PriceChart";
 import { QuickAlert } from "../components/QuickAlert";
 import { SaleHistory } from "../components/SaleHistory";
@@ -88,6 +89,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollecti
         </div>
       </div>
       <Verdict giftId={gift.id} authenticated={authenticated} />
+      <Liquidity giftId={gift.id} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">
