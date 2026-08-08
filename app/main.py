@@ -25,6 +25,7 @@ from app.routes.movers import router as movers_router
 from app.routes.overview import router as overview_router
 from app.routes.portfolio import router as portfolio_router
 from app.routes.positions import router as positions_router
+from app.routes.research import router as research_router
 from app.routes.selling import router as selling_router
 from app.routes.sniper import router as sniper_router
 from app.routes.source_status import router as source_status_router
@@ -100,6 +101,7 @@ for router in (
     positions_router,
     selling_router,
     volatility_router,
+    research_router,
     sniper_router,
     analytics_router,
     trends_router,

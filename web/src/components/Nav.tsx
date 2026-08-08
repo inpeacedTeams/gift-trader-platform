@@ -1,4 +1,4 @@
-import { Activity, Bell, Briefcase, Crosshair, Gem, Layers, LayoutDashboard, Settings2, Sparkles, Star, Store, Tag, Wallet } from "lucide-react";
+import { Activity, Bell, Briefcase, Crosshair, FlaskConical, Gem, Layers, LayoutDashboard, Settings2, Sparkles, Star, Store, Tag, Wallet } from "lucide-react";
 
 export type View =
   | "overview"
@@ -7,6 +7,7 @@ export type View =
   | "deals"
   | "sniper"
   | "analyst"
+  | "research"
   | "opportunities"
   | "watchlist"
   | "positions"
@@ -23,6 +24,7 @@ export function Nav({ view, onChange, count }: { view: View; onChange: (view: Vi
     { id: "deals", label: "Deals", icon: Tag },
     { id: "sniper", label: "Sniper", icon: Crosshair },
     { id: "analyst", label: "Analyst", icon: Sparkles },
+    { id: "research", label: "Research", icon: FlaskConical },
     { id: "opportunities", label: "Opportunities", icon: Activity },
     { id: "watchlist", label: "Watchlist", icon: Star },
     { id: "positions", label: "Positions", icon: Briefcase },
