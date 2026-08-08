@@ -31,6 +31,7 @@ export type GiftCard = {
   listings_count: number;
   change_percent?: string | null;
   best_marketplace?: string | null;
+  deal_percent?: string | null;
 };
 export type GiftPage = { data_mode: string; items: GiftCard[]; page: number; page_size: number; total: number; has_next: boolean };
 export type GiftListing = {

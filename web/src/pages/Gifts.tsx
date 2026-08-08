@@ -1,5 +1,5 @@
 import { FormEvent, MouseEvent, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Search, Star, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Star, Tag, X } from "lucide-react";
 import { getGiftModels, getGifts, type GiftSort } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
@@ -18,6 +18,7 @@ const MARKET_OPTIONS = [
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Recently added" },
+  { value: "deal_desc", label: "Biggest discount", hint: "Furthest below its model peers" },
   { value: "floor_asc", label: "Cheapest first" },
   { value: "floor_desc", label: "Most expensive" },
   { value: "depth", label: "Most listed" },
@@ -38,6 +39,7 @@ type CardProps = {
 function Card({ gift, onOpen, saved, canSave, onToggleSave }: CardProps) {
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
+  const deal = gift.deal_percent === null || gift.deal_percent === undefined ? null : Number(gift.deal_percent);
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   const save = (event: MouseEvent) => {
     event.stopPropagation();
@@ -46,7 +48,14 @@ function Card({ gift, onOpen, saved, canSave, onToggleSave }: CardProps) {
   return (
     <div className="gift-card-shell">
       <button className="gift-card" onClick={() => onOpen(gift.id)}>
-        <GiftImage src={gift.image_url} alt={title} />
+        <div className="gift-card-media">
+          <GiftImage src={gift.image_url} alt={title} />
+          {deal !== null && deal >= 1 && (
+            <span className="deal-badge" title="Below the median of the same model">
+              <Tag size={11} /> {deal.toFixed(0)}% under
+            </span>
+          )}
+        </div>
         <div className="gift-card-body">
           <strong>{title}</strong>
           <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
@@ -97,6 +106,7 @@ export function Gifts({
   const [marketplace, setMarketplace] = useState("");
   const [model, setModel] = useState("");
   const [sort, setSort] = useState<GiftSort>("recent");
+  const [dealsOnly, setDealsOnly] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [priceFilter, setPriceFilter] = useState({ min: "", max: "" });
@@ -112,6 +122,7 @@ export function Gifts({
       const data = await getGifts({
         page,
         sort,
+        dealsOnly,
         search: search || undefined,
         marketplace: marketplace || undefined,
         model: model || undefined,
@@ -140,13 +151,18 @@ export function Gifts({
 
   useEffect(() => {
     void load();
-  }, [page, search, marketplace, model, sort, priceFilter, collection?.id]);
+  }, [page, search, marketplace, model, sort, dealsOnly, priceFilter, collection?.id]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
     setSearch(query.trim());
     setPriceFilter({ min: minPrice.trim(), max: maxPrice.trim() });
+  };
+
+  const toggleDeals = () => {
+    setPage(1);
+    setDealsOnly(current => !current);
   };
 
   const modelOptions = [{ value: "", label: "All models" }, ...models.map(item => ({ value: item, label: item }))];
@@ -224,6 +240,14 @@ export function Gifts({
           }}
           options={MARKET_OPTIONS}
         />
+        <button
+          type="button"
+          className={dealsOnly ? "toggle-chip on" : "toggle-chip"}
+          aria-pressed={dealsOnly}
+          onClick={toggleDeals}
+        >
+          <Tag size={13} /> Underpriced
+        </button>
       </div>
       {error ? (
         <ErrorState detail={error} retry={() => void load()} />
@@ -254,7 +278,14 @@ export function Gifts({
           </div>
         </>
       ) : (
-        <EmptyState title="Nothing tracked yet" detail="Run a market sync, then refresh. Listings appear as soon as a source responds." />
+        <EmptyState
+          title={dealsOnly ? "No discounts right now" : "Nothing tracked yet"}
+          detail={
+            dealsOnly
+              ? "Nothing is trading below its model median. Turn the filter off to see the full catalog."
+              : "Run a market sync, then refresh. Listings appear as soon as a source responds."
+          }
+        />
       )}
     </section>
   );
