@@ -1,2 +1,65 @@
+import { useState } from "react";
 import { Database, ExternalLink, ShieldCheck } from "lucide-react";
-export function Settings() { return <section className="page-section"><div className="section-head"><div><p className="eyebrow">CONTROL ROOM</p><h2>Settings</h2></div></div><div className="settings-grid"><article className="settings-card"><div className="settings-title"><Database size={18}/><h3>Data sources</h3></div><div className="setting-line"><span>Fragment</span><b className="source-live">Live</b></div><div className="setting-line"><span>Portals</span><b className="source-live">Live</b></div><div className="setting-line"><span>GetGems / TONAPI</span><b className="source-live">Live</b></div></article><article className="settings-card"><div className="settings-title"><ShieldCheck size={18}/><h3>Trading guardrails</h3></div><label className="field">Minimum net edge<input type="number" min="0" defaultValue="10"/><small>Signals below this percentage stay hidden.</small></label><label className="field">Currency<select defaultValue="TON"><option>TON</option></select></label></article></div><a className="docs-link" href="https://github.com/inpeacedTeams/gift-trader-platform" target="_blank" rel="noreferrer">Open project documentation <ExternalLink size={14}/></a></section>; }
+import { Select } from "../components/Select";
+
+const CURRENCIES = [{ value: "TON", label: "TON", hint: "Only settlement currency today" }];
+
+export function Settings() {
+  const [currency, setCurrency] = useState("TON");
+  return (
+    <section className="page-section">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">CONTROL ROOM</p>
+          <h2>Settings</h2>
+        </div>
+      </div>
+      <div className="settings-grid">
+        <article className="settings-card">
+          <div className="settings-title">
+            <Database size={18} />
+            <h3>Data sources</h3>
+          </div>
+          <div className="setting-line">
+            <span>Tonnel</span>
+            <b className="source-live">Primary</b>
+          </div>
+          <div className="setting-line">
+            <span>GetGems / TONAPI</span>
+            <b className="source-live">Live</b>
+          </div>
+          <div className="setting-line">
+            <span>Portals</span>
+            <b className="fresh">Needs auth data</b>
+          </div>
+          <div className="setting-line">
+            <span>Fragment</span>
+            <b className="fresh">Opt in</b>
+          </div>
+        </article>
+        <article className="settings-card">
+          <div className="settings-title">
+            <ShieldCheck size={18} />
+            <h3>Trading guardrails</h3>
+          </div>
+          <label className="field">
+            Minimum net edge
+            <input type="number" min="0" defaultValue="10" />
+            <small>Signals below this percentage stay hidden.</small>
+          </label>
+          <div className="field">
+            <Select label="Currency" value={currency} onChange={setCurrency} options={CURRENCIES} />
+          </div>
+        </article>
+      </div>
+      <a
+        className="docs-link"
+        href="https://github.com/inpeacedTeams/gift-trader-platform"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Open project documentation <ExternalLink size={14} />
+      </a>
+    </section>
+  );
+}
