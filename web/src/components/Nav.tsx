@@ -8,8 +8,8 @@ export type View =
   | "sniper"
   | "analyst"
   | "opportunities"
-  | "positions"
   | "watchlist"
+  | "positions"
   | "portfolio"
   | "alerts"
   | "settings";
@@ -23,8 +23,8 @@ export function Nav({ view, onChange, count }: { view: View; onChange: (view: Vi
     { id: "sniper", label: "Sniper", icon: Crosshair },
     { id: "analyst", label: "Analyst", icon: Sparkles },
     { id: "opportunities", label: "Opportunities", icon: Activity },
-    { id: "positions", label: "Positions", icon: Briefcase },
     { id: "watchlist", label: "Watchlist", icon: Star },
+    { id: "positions", label: "Positions", icon: Briefcase },
     { id: "portfolio", label: "Portfolio", icon: Wallet },
     { id: "alerts", label: "Alerts", icon: Bell },
   ];
