@@ -137,12 +137,10 @@
    handles everything and the main thread stays free. */
 .lift {
   transition: transform 0.18s ease, border-color 0.18s ease;
-  will-change: transform;
 }
 
 .lift:hover {
   transform: translateY(-2px);
-  border-color: #2c3span;
   border-color: #2c3a4e;
 }
 

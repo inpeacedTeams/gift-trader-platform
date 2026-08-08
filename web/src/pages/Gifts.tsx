@@ -21,7 +21,7 @@ function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => vo
   const rising = Number(gift.change_percent ?? 0) >= 0;
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   return (
-    <button className="gift-card lift" onClick={() => onOpen(gift.id)}>
+    <button className="gift-card" onClick={() => onOpen(gift.id)}>
       <GiftImage src={gift.image_url} alt={title} />
       <div className="gift-card-body">
         <strong>{title}</strong>
@@ -106,7 +106,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
         <LoadingState />
       ) : items.length ? (
         <>
-          <div className="gift-grid stagger">
+          <div className="gift-grid">
             {items.map(gift => (
               <Card key={gift.id} gift={gift} onOpen={onOpen} />
             ))}
