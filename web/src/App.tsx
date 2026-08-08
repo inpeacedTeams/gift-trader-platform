@@ -15,6 +15,7 @@ import { clearToken } from "./auth";
 import type { ArbitrageResponse, MarketResponse } from "./types";
 import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
+import { Movers } from "./components/Movers";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
 import { Collections } from "./pages/Collections";
 import { Deals } from "./pages/Deals";
@@ -153,7 +154,13 @@ export default function App() {
     ) : view === "settings" ? (
       <Settings />
     ) : (
-      <Overview markets={markets} opportunities={opportunities} loading={loading} onBrowse={() => changeView("collections")} />
+      <Overview
+        markets={markets}
+        opportunities={opportunities}
+        loading={loading}
+        onBrowse={() => changeView("collections")}
+        onOpenGift={openGift}
+      />
     );
   return (
     <div className="app-shell">
@@ -206,4 +213,102 @@ export default function App() {
     </div>
   );
 }
-function Overview({ markets, opportunities, loading, onBrowse }: { markets: MarketResponse | null; opportunities: ArbitrageResponse["opportunities"]; loading: boolean; onBrowse: () => void }) { const listingCount = markets?.markets.reduce((sum, market) => sum + market.listings.length, 0) ?? 0; const profit = opportunities.reduce((sum, item) => sum + Number(item.profit_ton), 0); return <section className="page-section"><div className="hero-card"><div className="hero-copy"><span className="kicker">◉ Decision cockpit</span><h2>See the market.<br/><em>Move with clarity.</em></h2><p>Cross-market pricing, verified identities, and fee-aware opportunities in one calm view.</p><button className="outline-btn" onClick={onBrowse}>Browse collections</button></div><div className="signal-orbit"><div className="orbit-ring"/><div className="orbit-core"><span>{loading ? "--" : formatCount(opportunities.length)}</span><small>signals</small></div></div></div><div className="metric-grid"><div className="metric green"><span>Net opportunity</span><strong>{loading ? "--" : formatTon(profit)}</strong><small>after marketplace fees</small></div><div className="metric blue"><span>Tracked listings</span><strong>{loading ? "--" : formatCount(listingCount)}</strong><small>from live sources</small></div><div className="metric violet"><span>Markets online</span><strong>{loading ? "--" : formatCount(markets?.markets.length ?? 0)}</strong><small>active sources</small></div></div><div className="section-head overview-head"><div><p className="eyebrow">NEXT ACTION</p><h2>Arbitrage radar</h2></div><span className="fresh"><i/> {formatCount(opportunities.length)} verified signals</span></div><div className="table-card">{loading ? <LoadingState/> : opportunities.slice(0, 5).map(item => <div className="table-row" key={`${item.buy_listing_id}-${item.sell_listing_id}`}><div className="gift-cell"><div className="gift-icon">✦</div><div><strong>{item.gift_key.split(":").slice(-1)[0]}</strong><small>{item.buy_marketplace} → {item.sell_marketplace}</small></div></div><div><b>{formatTon(item.buy_price_ton)}</b><small>buy</small></div><div><b>{formatTon(item.sell_price_ton)}</b><small>sell</small></div><div className="edge"><strong>{formatTonDelta(item.profit_ton)}</strong><small>{formatPercent(item.profit_percent)}</small></div></div>)}</div></section>; }
+function Overview({
+  markets,
+  opportunities,
+  loading,
+  onBrowse,
+  onOpenGift,
+}: {
+  markets: MarketResponse | null;
+  opportunities: ArbitrageResponse["opportunities"];
+  loading: boolean;
+  onBrowse: () => void;
+  onOpenGift: (giftId: number) => void;
+}) {
+  const listingCount = markets?.markets.reduce((sum, market) => sum + market.listings.length, 0) ?? 0;
+  const profit = opportunities.reduce((sum, item) => sum + Number(item.profit_ton), 0);
+  return (
+    <section className="page-section">
+      <div className="hero-card">
+        <div className="hero-copy">
+          <span className="kicker">◉ Decision cockpit</span>
+          <h2>
+            See the market.
+            <br />
+            <em>Move with clarity.</em>
+          </h2>
+          <p>Cross-market pricing, verified identities, and fee-aware opportunities in one calm view.</p>
+          <button className="outline-btn" onClick={onBrowse}>
+            Browse collections
+          </button>
+        </div>
+        <div className="signal-orbit">
+          <div className="orbit-ring" />
+          <div className="orbit-core">
+            <span>{loading ? "--" : formatCount(opportunities.length)}</span>
+            <small>signals</small>
+          </div>
+        </div>
+      </div>
+      <div className="metric-grid">
+        <div className="metric green">
+          <span>Net opportunity</span>
+          <strong>{loading ? "--" : formatTon(profit)}</strong>
+          <small>after marketplace fees</small>
+        </div>
+        <div className="metric blue">
+          <span>Tracked listings</span>
+          <strong>{loading ? "--" : formatCount(listingCount)}</strong>
+          <small>from live sources</small>
+        </div>
+        <div className="metric violet">
+          <span>Markets online</span>
+          <strong>{loading ? "--" : formatCount(markets?.markets.length ?? 0)}</strong>
+          <small>active sources</small>
+        </div>
+      </div>
+      <Movers onOpen={onOpenGift} />
+      <div className="section-head overview-head">
+        <div>
+          <p className="eyebrow">NEXT ACTION</p>
+          <h2>Arbitrage radar</h2>
+        </div>
+        <span className="fresh">
+          <i /> {formatCount(opportunities.length)} verified signals
+        </span>
+      </div>
+      <div className="table-card">
+        {loading ? (
+          <LoadingState />
+        ) : (
+          opportunities.slice(0, 5).map(item => (
+            <div className="table-row" key={`${item.buy_listing_id}-${item.sell_listing_id}`}>
+              <div className="gift-cell">
+                <div className="gift-icon">✦</div>
+                <div>
+                  <strong>{item.gift_key.split(":").slice(-1)[0]}</strong>
+                  <small>
+                    {item.buy_marketplace} → {item.sell_marketplace}
+                  </small>
+                </div>
+              </div>
+              <div>
+                <b>{formatTon(item.buy_price_ton)}</b>
+                <small>buy</small>
+              </div>
+              <div>
+                <b>{formatTon(item.sell_price_ton)}</b>
+                <small>sell</small>
+              </div>
+              <div className="edge">
+                <strong>{formatTonDelta(item.profit_ton)}</strong>
+                <small>{formatPercent(item.profit_percent)}</small>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
