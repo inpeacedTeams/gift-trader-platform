@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Gift, Listing, PriceSnapshot
+from app.db.repositories.collections import CollectionRepository
 from app.market.models import MarketSnapshot
 from app.market.normalize import normalize_snapshot
 
@@ -12,6 +13,7 @@ from app.market.normalize import normalize_snapshot
 class MarketSnapshotRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.collections = CollectionRepository(session)
 
     async def persist(self, snapshot: MarketSnapshot) -> int:
         now = datetime.now(timezone.utc)
@@ -79,10 +81,12 @@ class MarketSnapshotRepository:
 
     async def _get_or_create_gift(self, key: str, item) -> Gift:
         image_url = str(item.image_url) if item.image_url else None
+        collection = await self.collections.resolve(item)
         gift = await self.session.scalar(select(Gift).where(Gift.canonical_id == key))
         if gift is None:
             gift = Gift(
                 canonical_id=key,
+                collection_id=collection.id if collection else None,
                 gift_number=item.gift_number,
                 name=item.name,
                 model=item.model,
@@ -94,5 +98,6 @@ class MarketSnapshotRepository:
             gift.name = item.name or gift.name
             gift.model = item.model or gift.model
             gift.image_url = gift.image_url or image_url
+            gift.collection_id = gift.collection_id or (collection.id if collection else None)
             gift.gift_number = gift.gift_number if gift.gift_number is not None else item.gift_number
         return gift

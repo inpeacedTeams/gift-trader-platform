@@ -17,6 +17,25 @@ def normalize_address(value: str | None) -> str:
     return (value or "").strip().casefold()
 
 
+def slugify(value: str | None) -> str:
+    """'Snoop Dogg' -> 'snoop-dogg'. Empty when there is nothing usable."""
+    return normalize_text(value).replace(" ", "-")
+
+
+def canonical_collection_key(listing: Listing) -> str | None:
+    """Stable identity for the collection a listing belongs to.
+
+    On-chain address wins when a source provides one. Marketplaces that only
+    expose a gift name fall back to a slug so the same collection still groups
+    across sources.
+    """
+    address = normalize_address(listing.collection_id)
+    if address:
+        return address
+    slug = slugify(listing.collection_name or listing.name)
+    return f"name:{slug}" if slug else None
+
+
 def canonical_gift_key(listing: Listing) -> str:
     """Build a stable key only from identity fields, never from price or URL.
 
