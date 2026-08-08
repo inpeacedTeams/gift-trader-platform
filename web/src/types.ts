@@ -65,3 +65,16 @@ export type Deal = {
   url?: string | null;
 };
 export type DealList = { data_mode: string; items: Deal[] };
+
+export type MoverCard = {
+  gift_id: number;
+  name?: string | null;
+  model?: string | null;
+  image_url?: string | null;
+  collection_id?: number | null;
+  collection_name?: string | null;
+  floor_ton: string;
+  previous_ton: string;
+  change_percent: string;
+};
+export type MoversResponse = { data_mode: string; window_hours: number; gainers: MoverCard[]; losers: MoverCard[] };
