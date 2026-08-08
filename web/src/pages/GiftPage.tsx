@@ -6,6 +6,7 @@ import { ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
 import { PriceChart } from "../components/PriceChart";
 import { QuickAlert } from "../components/QuickAlert";
+import { SaleHistory } from "../components/SaleHistory";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
 import "../catalog-deals.css";
@@ -103,6 +104,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollecti
           <small>{formatCount(active.length)} currently active</small>
         </div>
       </div>
+      <SaleHistory giftId={gift.id} />
       <div className="valuation-panel">
         <div className="section-head">
           <div>

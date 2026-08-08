@@ -49,6 +49,25 @@ export type GiftDetail = GiftCard & { listings: GiftListing[]; sources: string[]
 export type PricePoint = { observed_at: string; marketplace: string; floor_ton?: string | null; median_ton?: string | null; volume_ton?: string | null; listings_count: number };
 export type GiftHistory = { data_mode: string; gift_id: number; points: PricePoint[] };
 
+export type TradeRecord = {
+  id: number;
+  marketplace: string;
+  price_ton: string;
+  seller?: string | null;
+  buyer?: string | null;
+  traded_at: string;
+};
+export type TradeStats = {
+  window_days: number;
+  sales_count: number;
+  lowest_ton?: string | null;
+  highest_ton?: string | null;
+  median_ton?: string | null;
+  volume_ton?: string | null;
+  last_sold_at?: string | null;
+};
+export type GiftTrades = { data_mode: string; gift_id: number; stats: TradeStats; items: TradeRecord[] };
+
 export type Deal = {
   gift_id: number;
   name?: string | null;

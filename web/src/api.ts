@@ -1,4 +1,4 @@
-import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, MarketResponse, MoversResponse } from "./types";
+import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketResponse, MoversResponse } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -70,4 +70,7 @@ export const getGiftModels = (collectionId?: number) =>
 export const getGift = (giftId: number) => request<GiftDetail>(`/gifts/${giftId}`);
 export const getGiftHistory = (giftId: number, marketplace?: string) =>
   request<GiftHistory>(`/gifts/${giftId}/history${marketplace ? `?marketplace=${encodeURIComponent(marketplace)}` : ""}`);
+export const getGiftTrades = (giftId: number, limit = 20) =>
+  request<GiftTrades>(`/gifts/${giftId}/trades?limit=${limit}`);
 export const triggerMarketSync = () => request<{ status: string; job: string }>("/jobs/market-sync", { method: "POST" });
+export const triggerTradeSync = () => request<{ status: string; job: string }>("/jobs/trade-sync", { method: "POST" });
