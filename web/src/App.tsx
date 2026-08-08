@@ -159,7 +159,7 @@ export default function App() {
     ) : view === "portfolio" ? (
       <Portfolio />
     ) : view === "alerts" ? (
-      <Alerts available={opportunities.length > 0} />
+      <Alerts available={opportunities.length > 0} onOpenGift={openGift} />
     ) : view === "settings" ? (
       <Settings />
     ) : (
