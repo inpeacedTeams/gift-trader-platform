@@ -4,6 +4,7 @@ from .market import Listing, PriceSnapshot
 from .operations import SourceStatus, Trade
 from .portfolio import PortfolioHolding, PortfolioValuation
 from .positions import Position
+from .research import SavedStrategy, StrategyRun
 from .resolver import ResolverTelemetry
 from .selling import SellerIdentity, UndercutNotice
 from .sniper import SniperHit, SniperWatch
@@ -16,10 +17,12 @@ __all__ = [
     "MarketEvent",
     "Position",
     "PriceSnapshot",
+    "SavedStrategy",
     "SellerIdentity",
     "SourceStatus",
     "SniperHit",
     "SniperWatch",
+    "StrategyRun",
     "Trade",
     "UndercutNotice",
     "PortfolioHolding",
