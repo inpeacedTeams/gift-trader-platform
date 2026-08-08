@@ -1,0 +1,84 @@
+/* Attribute rarity. Scarcity is the second half of a gift's price, so it gets
+   its own visual weight instead of hiding inside the model line. */
+
+.rarity-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: rgba(8, 12, 18, 0.86);
+  color: #c3cddb;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.rarity-badge.inline {
+  position: static;
+}
+
+.rarity-badge.legendary {
+  border-color: rgba(245, 197, 106, 0.45);
+  background: rgba(38, 28, 8, 0.9);
+  color: #f5c56a;
+}
+
+.rarity-badge.rare {
+  border-color: rgba(139, 160, 255, 0.45);
+  background: rgba(16, 20, 44, 0.9);
+  color: #8ba0ff;
+}
+
+.rarity-badge.uncommon {
+  border-color: rgba(131, 231, 179, 0.35);
+  background: rgba(10, 28, 22, 0.9);
+  color: #83e7b3;
+}
+
+/* Trait breakdown on the gift page. */
+.trait-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.trait {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #0c1118;
+}
+
+.trait span {
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #6c7889;
+}
+
+.trait strong {
+  font-size: 0.98rem;
+  color: #e7edf5;
+}
+
+.trait strong.unknown {
+  color: #6c7889;
+  font-weight: 500;
+}
+
+.trait small {
+  font-size: 0.72rem;
+  color: #8b98a9;
+}
+
+.trait small.scarce {
+  color: #f5c56a;
+}

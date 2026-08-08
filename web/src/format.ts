@@ -46,6 +46,20 @@ export function formatPercent(value: Numeric): string | null {
   return `${amount > 0 ? "+" : ""}${text}%`;
 }
 
+/** Unsigned rarity share: "12%", "1.5%", "0.28%".
+ *
+ * Rarity is not a change, so it never gets a sign, and the scarce end of the
+ * scale keeps its digits: rounding 0.28% down to 0% would erase the point.
+ */
+export function formatRarity(value: Numeric): string | null {
+  const amount = toNumber(value);
+  if (amount === null || amount <= 0) return null;
+  const text = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: amount >= 10 ? 0 : amount >= 1 ? 1 : 2,
+  }).format(amount);
+  return `${text}%`;
+}
+
 /** Whole counts with separators: 1,248. */
 export function formatCount(value: Numeric): string {
   const amount = toNumber(value);
