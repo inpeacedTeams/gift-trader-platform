@@ -1,4 +1,5 @@
 import type { PricePoint } from "../types";
+import { formatPercent, formatTon } from "../format";
 
 const WIDTH = 100;
 const HEIGHT = 100;
@@ -41,22 +42,19 @@ export function PriceChart({ points }: { points: PricePoint[] }) {
     <div className="price-chart">
       <div className="chart-head">
         <div>
-          <strong>{last.toFixed(3)} TON</strong>
+          <strong>{formatTon(last)}</strong>
           <small>current floor</small>
         </div>
-        <span className={change >= 0 ? "trend-up" : "trend-down"}>
-          {change >= 0 ? "+" : ""}
-          {change.toFixed(2)}%
-        </span>
+        <span className={change >= 0 ? "trend-up" : "trend-down"}>{formatPercent(change)}</span>
       </div>
       <div className="chart-body">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`Floor price from ${first.toFixed(3)} to ${last.toFixed(3)} TON`}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`Floor price from ${formatTon(first)} to ${formatTon(last)}`}>
           <polyline className="chart-median" points={line(medians, min, range)} fill="none" strokeWidth="1.4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
           <polyline className="chart-floor" points={line(floors, min, range)} fill="none" strokeWidth="2.2" vectorEffect="non-scaling-stroke" />
         </svg>
         <div className="chart-axis-y">
-          <span>{max.toFixed(2)}</span>
-          <span>{min.toFixed(2)}</span>
+          <span>{formatTon(max, { suffix: false })}</span>
+          <span>{formatTon(min, { suffix: false })}</span>
         </div>
       </div>
       <div className="chart-axis-x">

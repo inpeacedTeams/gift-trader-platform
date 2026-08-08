@@ -4,14 +4,12 @@ import { getGifts } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
+import { formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
 
-function price(value?: string | null): string {
-  return value ? `${Number(value).toFixed(3)} TON` : "--";
-}
-
 function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
-  const change = gift.change_percent === null || gift.change_percent === undefined ? null : Number(gift.change_percent);
+  const change = formatPercent(gift.change_percent);
+  const rising = Number(gift.change_percent ?? 0) >= 0;
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   return (
     <button className="gift-card" onClick={() => onOpen(gift.id)}>
@@ -20,17 +18,12 @@ function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => vo
         <strong>{title}</strong>
         <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
         <div className="gift-card-price">
-          <span>{price(gift.floor_ton)}</span>
-          {change !== null && (
-            <b className={change >= 0 ? "trend-up" : "trend-down"}>
-              {change >= 0 ? "+" : ""}
-              {change.toFixed(2)}%
-            </b>
-          )}
+          <span>{formatTon(gift.floor_ton)}</span>
+          {change && <b className={rising ? "trend-up" : "trend-down"}>{change}</b>}
         </div>
         <div className="gift-card-meta">
-          <span>median {price(gift.median_ton)}</span>
-          <span>{gift.listings_count} listed</span>
+          <span>median {formatTon(gift.median_ton)}</span>
+          <span>{formatCount(gift.listings_count)} listed</span>
         </div>
       </div>
     </button>
@@ -80,7 +73,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
           <h2>Gifts</h2>
         </div>
         <span className="fresh">
-          <i /> {total} tracked
+          <i /> {formatCount(total)} tracked
         </span>
       </div>
       <form className="gift-search" onSubmit={submit}>
