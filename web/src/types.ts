@@ -1,9 +1,37 @@
 export type Marketplace = "fragment" | "portals" | "getgems" | "tonnel" | "tonapi";
 export type Listing = { marketplace: Marketplace; listing_id: string; gift_id: string; canonical_id?: string | null; collection_id?: string | null; collection_name?: string | null; name?: string | null; price_ton: string; url?: string | null; observed_at: string };
 export type Snapshot = { marketplace: Marketplace; observed_at: string; listings: Listing[] };
-export type Opportunity = { gift_key: string; buy_marketplace: Marketplace; sell_marketplace: Marketplace; buy_listing_id: string; sell_listing_id: string; buy_price_ton: string; sell_price_ton: string; profit_ton: string; profit_percent: string };
 export type MarketResponse = { data_mode: "live-only"; markets: Snapshot[] };
-export type ArbitrageResponse = { data_mode: "live-only"; opportunities: Opportunity[]; unavailable: { marketplace: string; reason: string }[] };
+
+export type OverviewStats = {
+  data_mode: string;
+  active_listings: number;
+  listed_gifts: number;
+  tracked_gifts: number;
+  collections: number;
+  market_value_ton?: string | null;
+  sources_online: number;
+  events_24h: number;
+  sales_24h: number;
+  last_sync_at?: string | null;
+};
+
+export type ArbitrageOpportunity = {
+  gift_id: number;
+  name?: string | null;
+  model?: string | null;
+  image_url?: string | null;
+  collection_name?: string | null;
+  buy_marketplace: string;
+  sell_marketplace: string;
+  buy_price_ton: string;
+  sell_price_ton: string;
+  buy_url?: string | null;
+  sell_url?: string | null;
+  profit_ton: string;
+  profit_percent: string;
+};
+export type ArbitrageList = { data_mode: string; items: ArbitrageOpportunity[] };
 
 export type SourceStatusCard = {
   marketplace: string;

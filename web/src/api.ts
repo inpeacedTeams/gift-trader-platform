@@ -1,4 +1,4 @@
-import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MarketResponse, MoversResponse, SourceStatusList, WatchlistPage } from "./types";
+import type { ArbitrageList, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MoversResponse, OverviewStats, SourceStatusList, WatchlistPage } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -47,7 +47,12 @@ export type AlertEvent = GiftLabel & {
 export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit?: number };
 export type AiAnswer = { answer: string; model: string; grounded_in?: string; remaining?: number; cached?: boolean };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
-export const getMarkets = (collections: string[] = []) => request<MarketResponse>(`/markets/snapshots${collections.length ? `?${collections.map(c => `collection=${encodeURIComponent(c)}`).join("&")}` : ""}`); export const getArbitrage = (minimum = 0) => request<ArbitrageResponse>(`/arbitrage?min_profit_percent=${minimum}`); export const getMe = () => request<User>("/auth/me");
+
+/** Dashboard numbers and spreads, both served from stored rows. */
+export const getOverview = () => request<OverviewStats>("/overview");
+export const getArbitrage = (minPercent = 0, limit = 50) =>
+  request<ArbitrageList>(`/arbitrage?min_profit_percent=${minPercent}&limit=${limit}`);
+export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
 
 /** Saved gifts as full cards. Ids alone were never enough to render a row. */
