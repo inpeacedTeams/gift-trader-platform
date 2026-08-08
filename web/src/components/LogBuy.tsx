@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BadgeCheck, Briefcase } from "lucide-react";
-import { createPosition } from "../api";
+import { openPosition } from "../api";
 import "../positions.css";
 
 type Props = {
@@ -31,10 +31,10 @@ export function LogBuy({ giftId, floorTon, venue, authenticated = false }: Props
     if (!price) return;
     setSaving(true);
     try {
-      await createPosition({
+      await openPosition({
         gift_id: giftId,
         buy_price_ton: price,
-        ...(market ? { buy_marketplace: market } : {}),
+        ...(market ? { marketplace: market } : {}),
       });
       setSaved(true);
       setOpen(false);

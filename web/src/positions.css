@@ -1,8 +1,215 @@
-.position-form {
+/* Styles for the positions book. Class names track pages/Positions.tsx:
+   when the markup changed, these did not, and the whole screen rendered
+   naked. Kept in one file so that cannot happen quietly again. */
+
+.pos-block {
+  margin-top: 22px;
+}
+
+.pos-heading {
+  margin: 0 0 10px;
+  color: #8793a3;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pos-list {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #151c27, #10151c);
+}
+
+.pos-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
-  align-items: end;
+  grid-template-columns: 2.2fr 1fr 1fr 1fr auto;
+  align-items: center;
   gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-row:last-child {
+  border-bottom: 0;
+}
+
+.pos-row.closed {
+  opacity: 0.62;
+}
+
+.pos-gift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-gift:hover strong {
+  color: #9cbaff;
+}
+
+.pos-media {
+  flex: none;
+  display: block;
+  width: 34px;
+  height: 34px;
+}
+
+.pos-media .gift-image {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.pos-name {
+  min-width: 0;
+}
+
+.pos-name strong {
+  display: block;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pos-name small,
+.pos-cell small {
+  display: block;
+  margin-top: 3px;
+  color: #8793a3;
+  font-size: 10px;
+}
+
+.pos-cell b {
+  display: block;
+  font-size: 13px;
+}
+
+.pos-pnl b {
+  font-size: 14px;
+}
+
+.pos-up {
+  color: #83e7b3;
+}
+
+.pos-down {
+  color: #ff8f8f;
+}
+
+/* Unknown is not zero: a gift nobody lists has no price, and the row says so
+   instead of printing a confident number. */
+.pos-unknown {
+  color: #8793a3;
+}
+
+.pos-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pos-close {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pos-close input {
+  width: 120px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0d1117;
+  color: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-close input:focus {
+  outline: none;
+  border-color: #9cbaff;
+}
+
+.pos-sell {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: #d7dee9;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pos-sell:hover {
+  border-color: #9cbaff;
+  color: #fff;
+}
+
+.pos-icon,
+.pos-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: #8793a3;
+  cursor: pointer;
+}
+
+.pos-icon:hover {
+  color: #fff;
+  border-color: #9cbaff;
+}
+
+.pos-icon.danger:hover {
+  color: #ff8f8f;
+  border-color: rgba(255, 143, 143, 0.5);
+}
+
+.pos-confirm {
+  color: #83e7b3;
+  border-color: rgba(131, 231, 179, 0.4);
+}
+
+.pos-icon:disabled,
+.pos-confirm:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pos-error {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  color: #ff8f8f;
+  font-size: 11px;
+}
+
+.pos-note {
+  margin: 10px 0 0;
+  color: #8793a3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Add form ------------------------------------------------------------ */
+
+.pos-form {
   margin: 16px 0;
   padding: 16px 18px;
   border: 1px solid var(--line);
@@ -10,21 +217,11 @@
   background: linear-gradient(135deg, #151c27, #10151c);
 }
 
-.position-form label {
-  display: block;
+.pos-search {
   position: relative;
 }
 
-.position-form span {
-  display: block;
-  margin-bottom: 6px;
-  color: #8793a3;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.position-form input {
+.pos-search input {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--line);
@@ -32,16 +229,13 @@
   background: #0d1117;
   color: inherit;
   font-size: 13px;
-  font-variant-numeric: tabular-nums;
 }
 
-.position-form input:focus {
+.pos-search input:focus,
+.pos-fields input:focus,
+.pos-fields select:focus {
   outline: none;
   border-color: #9cbaff;
-}
-
-.pos-search {
-  position: relative;
 }
 
 .pos-results {
@@ -52,7 +246,6 @@
   right: 0;
   margin: 6px 0 0;
   padding: 6px;
-  list-style: none;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #121821;
@@ -77,6 +270,13 @@
   background: rgba(156, 186, 255, 0.1);
 }
 
+.pos-result-media .gift-image {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
 .pos-results strong {
   display: block;
   font-size: 12px;
@@ -89,90 +289,51 @@
   font-size: 10px;
 }
 
-/* Row avatars: small enough to scan a long list without scrolling. */
-.gift-image.tiny {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  object-fit: cover;
-  flex: none;
-}
-
-.gift-image.placeholder.tiny {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  color: #8793a3;
-  font-size: 13px;
-}
-
-.position-row {
+.pos-fields {
   display: grid;
-  grid-template-columns: 2.2fr 1fr 1fr 1fr auto;
-  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  margin-top: 14px;
+}
+
+.pos-fields label {
+  display: block;
+}
+
+.pos-fields span {
+  display: block;
+  margin-bottom: 6px;
+  color: #8793a3;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pos-fields input,
+.pos-fields select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0d1117;
+  color: inherit;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
-.position-row:last-child {
-  border-bottom: 0;
-}
-
-.position-row.closed {
-  opacity: 0.62;
-}
-
-.position-row .gift-cell {
+.pos-form-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
+  gap: 12px;
+  margin-top: 14px;
 }
 
-.position-row b,
-.position-row strong {
-  display: block;
-  font-size: 13px;
-}
-
-.position-row small {
-  display: block;
-  margin-top: 3px;
+.pos-form-actions small {
   color: #8793a3;
-  font-size: 10px;
+  font-size: 11px;
 }
 
-.position-row .profit {
-  color: #83e7b3;
-}
-
-.position-row .loss {
-  color: #ff8f8f;
-}
-
-.position-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.position-actions input {
-  width: 110px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #0d1117;
-  color: inherit;
-  font-size: 12px;
-}
+/* Log a buy from the gift page --------------------------------------- */
 
 .log-buy {
   display: flex;
@@ -207,12 +368,11 @@
 }
 
 @media (max-width: 900px) {
-  .position-form,
-  .position-row {
+  .pos-row {
     grid-template-columns: 1fr 1fr;
   }
 
-  .position-actions {
+  .pos-actions {
     justify-content: flex-start;
   }
 }

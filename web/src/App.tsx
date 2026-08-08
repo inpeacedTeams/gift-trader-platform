@@ -32,7 +32,7 @@ import { Alerts } from "./pages/Alerts";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
-const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", analyst: "Analyst", opportunities: "Opportunities", sniper: "Sniper", watchlist: "Watchlist", positions: "My positions", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
+const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", analyst: "Analyst", opportunities: "Opportunities", sniper: "Sniper", watchlist: "Watchlist", positions: "Positions", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
