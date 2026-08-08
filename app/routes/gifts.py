@@ -1,6 +1,3 @@
-from datetime import timedelta
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,48 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Gift, PriceSnapshot
 from app.db.repositories import GiftRepository, PriceHistoryRepository
 from app.db.session import get_session
-from app.schemas.frontend import (
-    GiftCard,
-    GiftDetail,
-    GiftHistory,
-    GiftListing,
-    GiftPage,
-    PricePoint,
-)
+from app.schemas.frontend import GiftCard, GiftDetail, GiftHistory, GiftListing, GiftPage, PricePoint
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
-CHANGE_WINDOW = timedelta(hours=24)
-
-
-async def _latest_snapshot(session: AsyncSession, gift_id: int) -> PriceSnapshot | None:
-    return await session.scalar(
-        select(PriceSnapshot)
-        .where(PriceSnapshot.gift_id == gift_id)
-        .order_by(PriceSnapshot.observed_at.desc())
-        .limit(1)
-    )
-
-
-async def _change_percent(
-    session: AsyncSession, gift_id: int, latest: PriceSnapshot | None
-) -> Decimal | None:
-    """Floor move over the last 24h. None until there is a baseline to compare."""
-    if latest is None or not latest.floor_ton:
-        return None
-    baseline = await session.scalar(
-        select(PriceSnapshot)
-        .where(
-            PriceSnapshot.gift_id == gift_id,
-            PriceSnapshot.observed_at >= latest.observed_at - CHANGE_WINDOW,
-            PriceSnapshot.id != latest.id,
-        )
-        .order_by(PriceSnapshot.observed_at.asc())
-        .limit(1)
-    )
-    if baseline is None or not baseline.floor_ton:
-        return None
-    change = (latest.floor_ton - baseline.floor_ton) / baseline.floor_ton * 100
-    return change.quantize(Decimal("0.01"))
 
 
 @router.get("", response_model=GiftPage)
@@ -58,18 +16,34 @@ async def gifts(
     page_size: int = Query(default=24, ge=1, le=100),
     search: str | None = None,
     marketplace: str | None = None,
+    collection_id: int | None = Query(default=None, ge=1),
     session: AsyncSession = Depends(get_session),
 ):
-    rows, total = await GiftRepository(session).page(
-        page=page, page_size=page_size, search=search, marketplace=marketplace
+    repository = GiftRepository(session)
+    rows, total = await repository.page(
+        page=page,
+        page_size=page_size,
+        search=search,
+        marketplace=marketplace,
+        collection_id=collection_id,
     )
+    names: dict[int, str | None] = {}
     items = []
     for gift in rows:
-        point = await _latest_snapshot(session, gift.id)
+        point = await session.scalar(
+            select(PriceSnapshot)
+            .where(PriceSnapshot.gift_id == gift.id)
+            .order_by(PriceSnapshot.observed_at.desc())
+            .limit(1)
+        )
+        if gift.collection_id is not None and gift.collection_id not in names:
+            names[gift.collection_id] = await repository.collection_name(gift.collection_id)
         items.append(
             GiftCard(
                 id=gift.id,
                 canonical_id=gift.canonical_id,
+                collection_id=gift.collection_id,
+                collection_name=names.get(gift.collection_id) if gift.collection_id else None,
                 name=gift.name,
                 model=gift.model,
                 gift_number=gift.gift_number,
@@ -77,28 +51,24 @@ async def gifts(
                 floor_ton=point.floor_ton if point else None,
                 median_ton=point.median_ton if point else None,
                 listings_count=point.listings_count if point else 0,
-                change_percent=await _change_percent(session, gift.id, point),
             )
         )
-    return GiftPage(
-        items=items,
-        page=page,
-        page_size=page_size,
-        total=total,
-        has_next=page * page_size < total,
-    )
+    return GiftPage(items=items, page=page, page_size=page_size, total=total, has_next=page * page_size < total)
 
 
 @router.get("/{gift_id}", response_model=GiftDetail)
 async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)):
-    result = await GiftRepository(session).detail(gift_id)
+    repository = GiftRepository(session)
+    result = await repository.detail(gift_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Gift not found")
     gift, listings = result
-    point = await _latest_snapshot(session, gift_id)
+    point = (await repository.latest_stats(gift_id) or [None])[0]
     return GiftDetail(
         id=gift.id,
         canonical_id=gift.canonical_id,
+        collection_id=gift.collection_id,
+        collection_name=await repository.collection_name(gift.collection_id),
         name=gift.name,
         model=gift.model,
         gift_number=gift.gift_number,
@@ -106,7 +76,6 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         floor_ton=point.floor_ton if point else None,
         median_ton=point.median_ton if point else None,
         listings_count=point.listings_count if point else 0,
-        change_percent=await _change_percent(session, gift_id, point),
         listings=[GiftListing.model_validate(item) for item in listings],
         sources=sorted({item.marketplace for item in listings}),
     )
@@ -121,11 +90,5 @@ async def gift_history(
 ):
     if await session.get(Gift, gift_id) is None:
         raise HTTPException(status_code=404, detail="Gift not found")
-    rows = await PriceHistoryRepository(session).history(
-        gift_id=gift_id, marketplace=marketplace, limit=limit
-    )
-    # The repository returns newest first; charts read left to right.
-    return GiftHistory(
-        gift_id=gift_id,
-        points=[PricePoint.model_validate(row) for row in reversed(rows)],
-    )
+    rows = await PriceHistoryRepository(session).history(gift_id=gift_id, marketplace=marketplace, limit=limit)
+    return GiftHistory(gift_id=gift_id, points=[PricePoint.model_validate(row) for row in rows])

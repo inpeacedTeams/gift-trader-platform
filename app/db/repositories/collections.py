@@ -1,60 +1,68 @@
-from sqlalchemy import distinct, func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Collection, Gift, Listing
+from app.market.identity import canonical_collection_key, slugify
+from app.market.models import Listing as SourceListing
 
 
 class CollectionRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_or_create(self, key: str, name: str | None) -> Collection:
+    async def resolve(self, item: SourceListing) -> Collection | None:
+        """Find or create the collection a listing belongs to."""
+        key = canonical_collection_key(item)
+        if key is None:
+            return None
+        name = item.collection_name or item.name
         collection = await self.session.scalar(
             select(Collection).where(Collection.chain_address == key)
         )
         if collection is None:
-            collection = Collection(chain_address=key, name=name, slug=key.removeprefix("slug:"))
+            collection = Collection(chain_address=key, name=name, slug=slugify(name))
             self.session.add(collection)
             await self.session.flush()
         elif name and not collection.name:
             collection.name = name
+            collection.slug = slugify(name)
         return collection
 
-    async def overview(self, *, search: str | None = None) -> list[dict]:
-        """Every tracked series with live floor and depth.
-
-        Aggregated over active listings so an empty series never shows a
-        stale floor.
-        """
-        query = (
+    def _base(self, search: str | None = None, collection_id: int | None = None) -> Select:
+        """Collection rows with live aggregates over active listings."""
+        statement = (
             select(
                 Collection.id,
                 Collection.name,
                 Collection.slug,
                 Collection.chain_address,
-                func.count(distinct(Gift.id)).label("gift_count"),
-                func.min(Listing.price_ton).label("floor_ton"),
+                func.count(func.distinct(Gift.id)).label("gift_count"),
                 func.count(Listing.id).label("listings_count"),
-                func.min(Gift.image_url).label("image_url"),
+                func.min(Listing.price_ton).label("floor_ton"),
+                func.max(Gift.image_url).label("image_url"),
             )
             .join(Gift, Gift.collection_id == Collection.id)
             .outerjoin(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
-            .group_by(Collection.id)
-            .order_by(func.count(Listing.id).desc(), Collection.name.asc())
+            .where(Gift.is_active.is_(True))
+            .group_by(Collection.id, Collection.name, Collection.slug, Collection.chain_address)
         )
+        if collection_id is not None:
+            statement = statement.where(Collection.id == collection_id)
         if search:
-            query = query.where(Collection.name.ilike(f"%{search}%"))
-        rows = (await self.session.execute(query)).all()
-        return [
-            {
-                "id": row.id,
-                "name": row.name or row.slug or row.chain_address,
-                "slug": row.slug,
-                "chain_address": row.chain_address,
-                "gift_count": int(row.gift_count or 0),
-                "listings_count": int(row.listings_count or 0),
-                "floor_ton": row.floor_ton,
-                "image_url": row.image_url,
-            }
-            for row in rows
-        ]
+            statement = statement.where(Collection.name.ilike(f"%{search}%"))
+        return statement
+
+    async def page(self, *, page: int, page_size: int, search: str | None = None):
+        base = self._base(search=search)
+        total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
+        rows = (
+            await self.session.execute(
+                base.order_by(func.count(Listing.id).desc(), Collection.name.asc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return rows, int(total or 0)
+
+    async def detail(self, collection_id: int):
+        return (await self.session.execute(self._base(collection_id=collection_id))).first()
