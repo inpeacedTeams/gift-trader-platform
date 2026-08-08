@@ -69,6 +69,14 @@ class GiftCard(BaseModel):
     collection_name: str | None = None
     name: str | None = None
     model: str | None = None
+    # Share of the collection carrying each trait. None means the source never
+    # published it, which the UI must not render as "common".
+    model_rarity: Decimal | None = None
+    backdrop: str | None = None
+    backdrop_rarity: Decimal | None = None
+    symbol: str | None = None
+    symbol_rarity: Decimal | None = None
+    rarity_tier: str | None = None
     gift_number: int | None = None
     image_url: str | None = None
     floor_ton: Decimal | None = None
@@ -86,6 +94,23 @@ class GiftPage(BaseModel):
     page_size: int
     total: int
     has_next: bool
+
+
+class AttributeStat(BaseModel):
+    """One trait value: how scarce it is and what it currently costs."""
+
+    value: str
+    rarity_percent: Decimal | None = None
+    gift_count: int = 0
+    listings_count: int = 0
+    floor_ton: Decimal | None = None
+
+
+class AttributeGroups(BaseModel):
+    data_mode: str = "persisted"
+    models: list[AttributeStat]
+    backdrops: list[AttributeStat]
+    symbols: list[AttributeStat]
 
 
 class WatchlistCard(GiftCard):
@@ -202,11 +227,14 @@ class GiftTrades(BaseModel):
 
 
 class Deal(BaseModel):
-    """An active listing priced below the median of its own model."""
+    """An active listing priced below the median of its own peer group."""
 
     gift_id: int
     name: str | None = None
     model: str | None = None
+    backdrop: str | None = None
+    symbol: str | None = None
+    rarity_tier: str | None = None
     gift_number: int | None = None
     image_url: str | None = None
     collection_id: int | None = None

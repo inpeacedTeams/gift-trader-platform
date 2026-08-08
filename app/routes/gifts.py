@@ -7,7 +7,10 @@ from app.db.models import Gift
 from app.db.repositories import GiftRepository, PriceHistoryRepository, TradeRepository
 from app.db.repositories.gifts import SORTS
 from app.db.session import get_session
+from app.market.rarity import TIER_NAMES
 from app.schemas.frontend import (
+    AttributeGroups,
+    AttributeStat,
     GiftCard,
     GiftDetail,
     GiftHistory,
@@ -20,6 +23,20 @@ from app.schemas.frontend import (
 )
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
+TIER_PATTERN = f"^({'|'.join(TIER_NAMES)})$"
+
+
+def _traits(gift: Gift) -> dict:
+    """Trait block shared by the card and the detail view."""
+    return {
+        "model": gift.model,
+        "model_rarity": gift.model_rarity,
+        "backdrop": gift.backdrop,
+        "backdrop_rarity": gift.backdrop_rarity,
+        "symbol": gift.symbol,
+        "symbol_rarity": gift.symbol_rarity,
+        "rarity_tier": gift.rarity_tier,
+    }
 
 
 @router.get("", response_model=GiftPage)
@@ -30,6 +47,9 @@ async def gifts(
     marketplace: str | None = None,
     collection_id: int | None = Query(default=None, ge=1),
     model: str | None = None,
+    backdrop: str | None = None,
+    symbol: str | None = None,
+    rarity_tier: str | None = Query(default=None, pattern=TIER_PATTERN),
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
     deals_only: bool = Query(default=False),
@@ -44,6 +64,9 @@ async def gifts(
         marketplace=marketplace,
         collection_id=collection_id,
         model=model,
+        backdrop=backdrop,
+        symbol=symbol,
+        rarity_tier=rarity_tier,
         min_price=min_price,
         max_price=max_price,
         deals_only=deals_only,
@@ -61,7 +84,6 @@ async def gifts(
                 collection_id=gift.collection_id,
                 collection_name=names.get(gift.collection_id) if gift.collection_id else None,
                 name=gift.name,
-                model=gift.model,
                 gift_number=gift.gift_number,
                 image_url=gift.image_url,
                 floor_ton=floor_ton,
@@ -70,6 +92,7 @@ async def gifts(
                 change_percent=changes.get(gift.id),
                 best_marketplace=venues.get(gift.id),
                 deal_percent=deal_percent,
+                **_traits(gift),
             )
         )
     return GiftPage(items=items, page=page, page_size=page_size, total=total, has_next=page * page_size < total)
@@ -81,6 +104,20 @@ async def gift_models(
     session: AsyncSession = Depends(get_session),
 ):
     return await GiftRepository(session).models(collection_id)
+
+
+@router.get("/attributes", response_model=AttributeGroups)
+async def gift_attributes(
+    collection_id: int | None = Query(default=None, ge=1),
+    session: AsyncSession = Depends(get_session),
+):
+    """Every trait we track, with its rarity and the floor it trades at."""
+    groups = await GiftRepository(session).attributes(collection_id)
+    return AttributeGroups(
+        models=[AttributeStat(**row) for row in groups["model"]],
+        backdrops=[AttributeStat(**row) for row in groups["backdrop"]],
+        symbols=[AttributeStat(**row) for row in groups["symbol"]],
+    )
 
 
 @router.get("/{gift_id}", response_model=GiftDetail)
@@ -100,7 +137,6 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         collection_id=gift.collection_id,
         collection_name=await repository.collection_name(gift.collection_id),
         name=gift.name,
-        model=gift.model,
         gift_number=gift.gift_number,
         image_url=gift.image_url,
         floor_ton=floor,
@@ -111,6 +147,7 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         deal_percent=await repository.deal_percent(gift, floor),
         listings=[GiftListing.model_validate(item) for item in listings],
         sources=sorted({item.marketplace for item in active}),
+        **_traits(gift),
     )
 
 
