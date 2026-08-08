@@ -36,5 +36,6 @@ columns later migrations made nullable.
 | `0013_positions.sql` | Positions: entry price, exit, P&L basis |
 | `0014_seller_identities.sql` | Seller handles and undercut notices |
 | `0015_alert_events_without_rule.sql` | Alerts that fire without a rule (sniper, undercut) |
+| `0016_strategies.sql` | Saved strategies and their backtest runs |
 
 New migrations must use a unique filename and must not reuse a numeric prefix.
