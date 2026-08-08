@@ -1,0 +1,123 @@
+.deals-intro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #151c27, #10151c);
+}
+
+.deals-intro svg {
+  flex: none;
+  color: #83e7b3;
+}
+
+.deals-intro p {
+  flex: 1;
+  margin: 0;
+  color: #8793a3;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.deals-intro .ui-select {
+  flex: none;
+  min-width: 180px;
+}
+
+.deal-list {
+  display: grid;
+  gap: 8px;
+}
+
+.deal-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1.2fr 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #10151c;
+  font-variant-numeric: tabular-nums;
+  animation: gift-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.deal-row:hover {
+  transform: translateY(-2px);
+  border-color: #2c3a4e;
+}
+
+.deal-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.deal-identity .gift-image {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 11px;
+}
+
+.deal-identity strong {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deal-identity small,
+.deal-price small,
+.deal-median small,
+.deal-discount small {
+  display: block;
+  margin-top: 4px;
+  color: #8793a3;
+  font-size: 10px;
+}
+
+.deal-price b,
+.deal-median b {
+  font-size: 13px;
+}
+
+.deal-median b {
+  color: #8793a3;
+}
+
+.deal-discount strong {
+  font-size: 15px;
+  color: #83e7b3;
+}
+
+@media (max-width: 860px) {
+  .deal-row {
+    grid-template-columns: 1.6fr 1fr auto;
+  }
+  .deal-median {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deal-row {
+    animation: none;
+    transition: none;
+  }
+  .deal-row:hover {
+    transform: none;
+  }
+}

@@ -38,7 +38,6 @@ class GiftCard(BaseModel):
     listings_count: int = 0
     change_percent: Decimal | None = None
     best_marketplace: str | None = None
-    deal_percent: Decimal | None = None
 
 
 class GiftPage(BaseModel):
@@ -82,3 +81,26 @@ class GiftHistory(BaseModel):
     data_mode: str = "persisted"
     gift_id: int
     points: list[PricePoint]
+
+
+class Deal(BaseModel):
+    """An active listing priced below the median of its own model."""
+
+    gift_id: int
+    name: str | None = None
+    model: str | None = None
+    gift_number: int | None = None
+    image_url: str | None = None
+    collection_id: int | None = None
+    collection_name: str | None = None
+    marketplace: str
+    price_ton: Decimal
+    median_ton: Decimal
+    peer_count: int
+    discount_percent: Decimal
+    url: str | None = None
+
+
+class DealList(BaseModel):
+    data_mode: str = "persisted"
+    items: list[Deal]
