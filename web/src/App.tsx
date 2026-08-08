@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import {
   addToWatchlist,
   authenticateTelegram,
@@ -9,7 +9,6 @@ import {
   getOverview,
   getWatchlist,
   removeFromWatchlist,
-  triggerMarketSync,
   type User,
 } from "./api";
 import { clearToken } from "./auth";
@@ -43,7 +42,6 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /** Reads stored data only. Crawling happens on the worker, not on page load. */
@@ -58,20 +56,6 @@ export default function App() {
       setError(e instanceof Error ? e.message : "API unavailable");
     } finally {
       setLoading(false);
-    }
-  };
-
-  /** Ask the backend for a fresh collection pass, then reload once it settles. */
-  const syncMarket = async () => {
-    setSyncing(true);
-    try {
-      await triggerMarketSync();
-      await new Promise(resolve => setTimeout(resolve, 6000));
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start a market sync");
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -202,10 +186,7 @@ export default function App() {
                 "Guest mode"
               )}
             </span>
-            <button className="outline-btn" onClick={() => void syncMarket()} disabled={syncing}>
-              <Zap size={14} className={syncing ? "spin" : ""} /> {syncing ? "Syncing" : "Sync market"}
-            </button>
-            <button className="icon-btn" aria-label="Refresh live data" onClick={() => void refresh()}>
+            <button className="icon-btn" aria-label="Обновить данные" onClick={() => void refresh()}>
               <RefreshCw size={18} className={loading ? "spin" : ""} />
             </button>
             {user && (
