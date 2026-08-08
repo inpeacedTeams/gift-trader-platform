@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Calculator, Check, TrendingUp } from "lucide-react";
-import { getFees, openPosition, type FeeSchedule } from "../api";
+import { AlertTriangle, Calculator, TrendingUp } from "lucide-react";
+import { getFees, type FeeSchedule } from "../api";
 import { Select } from "./Select";
 import { formatPercent, formatTon, formatTonDelta } from "../format";
 import "./flip-calc.css";
 
 type Props = {
-  giftId?: number;
   floorTon?: string | number | null;
   medianTon?: string | number | null;
   /** Venues this gift actually trades on, so the fee picked is a real one. */
   venues?: string[];
-  authenticated?: boolean;
 };
 
 function toNumber(value: string | number | null | undefined): number | null {
@@ -27,11 +25,11 @@ function toNumber(value: string | number | null | undefined): number | null {
  * out loud: fees, gas, and the price the exit has to clear to break even.
  *
  * Fees come from the API rather than living here, so the calculator and the
- * arbitrage scanner always agree on what a trade costs.
+ * arbitrage scanner always agree on what a trade costs. Recording an actual
+ * purchase is LogBuy's job, right above this panel.
  */
-export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticated = false }: Props) {
+export function FlipCalc({ floorTon, medianTon, venues = [] }: Props) {
   const [fees, setFees] = useState<FeeSchedule | null>(null);
-  const [saved, setSaved] = useState(false);
   const floor = toNumber(floorTon);
   const median = toNumber(medianTon);
   const suggestedSell = median !== null && floor !== null ? Math.max(median, floor) : median ?? floor;
@@ -89,16 +87,6 @@ export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticat
   // current floor means undercutting is not an option.
   const floorShort = breakeven !== null && floor !== null && breakeven > floor;
 
-  const record = async () => {
-    if (!giftId || buy === null || buy <= 0) return;
-    await openPosition({
-      gift_id: giftId,
-      buy_price_ton: String(buy),
-      ...(venue ? { marketplace: venue } : {}),
-    });
-    setSaved(true);
-  };
-
   return (
     <div className="flip-panel">
       <div className="flip-head">
@@ -107,17 +95,6 @@ export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticat
           <strong>Прибыль после комиссий</strong>
           <small>Сколько реально останется на руках</small>
         </div>
-        {authenticated && giftId && (
-          <button className="flip-record" onClick={() => void record()} disabled={saved || buy === null}>
-            {saved ? (
-              <>
-                <Check size={13} /> в позициях
-              </>
-            ) : (
-              "Записать покупку"
-            )}
-          </button>
-        )}
       </div>
       <div className="flip-inputs">
         <label className="flip-field">
@@ -125,10 +102,7 @@ export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticat
           <input
             inputMode="decimal"
             value={buyText}
-            onChange={event => {
-              setBuyText(event.target.value);
-              setSaved(false);
-            }}
+            onChange={event => setBuyText(event.target.value)}
             placeholder="0"
           />
           {floor !== null && (
