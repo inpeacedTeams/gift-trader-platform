@@ -57,6 +57,10 @@ export type CollectionCard = {
 };
 export type CollectionPage = { data_mode: string; items: CollectionCard[]; page: number; page_size: number; total: number; has_next: boolean };
 
+/** Scarcity bucket of a gift's rarest trait. Absent means we hold no rarity
+ *  data for it yet, which is deliberately not the same as "common". */
+export type RarityTier = "legendary" | "rare" | "uncommon" | "common";
+
 export type GiftCard = {
   id: number;
   canonical_id: string;
@@ -64,6 +68,12 @@ export type GiftCard = {
   collection_name?: string | null;
   name?: string | null;
   model?: string | null;
+  model_rarity?: string | null;
+  backdrop?: string | null;
+  backdrop_rarity?: string | null;
+  symbol?: string | null;
+  symbol_rarity?: string | null;
+  rarity_tier?: RarityTier | null;
   gift_number?: number | null;
   image_url?: string | null;
   floor_ton?: string | null;
@@ -74,6 +84,22 @@ export type GiftCard = {
   deal_percent?: string | null;
 };
 export type GiftPage = { data_mode: string; items: GiftCard[]; page: number; page_size: number; total: number; has_next: boolean };
+
+/** One trait value with its scarcity and what it currently trades at. */
+export type AttributeStat = {
+  value: string;
+  rarity_percent?: string | null;
+  gift_count: number;
+  listings_count: number;
+  floor_ton?: string | null;
+};
+export type AttributeGroups = {
+  data_mode: string;
+  models: AttributeStat[];
+  backdrops: AttributeStat[];
+  symbols: AttributeStat[];
+};
+
 export type WatchlistCard = GiftCard & { saved_at: string };
 export type WatchlistPage = { data_mode: string; items: WatchlistCard[] };
 export type GiftListing = {
@@ -131,6 +157,9 @@ export type Deal = {
   gift_id: number;
   name?: string | null;
   model?: string | null;
+  backdrop?: string | null;
+  symbol?: string | null;
+  rarity_tier?: RarityTier | null;
   gift_number?: number | null;
   image_url?: string | null;
   collection_id?: number | null;
