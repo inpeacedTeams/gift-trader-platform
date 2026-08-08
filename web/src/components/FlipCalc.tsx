@@ -108,7 +108,7 @@ export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticat
           <small>Сколько реально останется на руках</small>
         </div>
         {authenticated && giftId && (
-          <button className="pos-ghost" onClick={() => void record()} disabled={saved || buy === null}>
+          <button className="flip-record" onClick={() => void record()} disabled={saved || buy === null}>
             {saved ? (
               <>
                 <Check size={13} /> в позициях
