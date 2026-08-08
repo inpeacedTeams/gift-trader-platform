@@ -1,67 +1,51 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LoaderCircle, Sparkles } from "lucide-react";
-import { getAiStatus, getAiVerdict } from "../api";
+import { getAiVerdict } from "../api";
 import "./ai.css";
 
-type Props = {
-  giftId: number;
-  authenticated: boolean;
-};
-
-/** Short read on one gift, requested only when the user asks for it.
+/** On demand read of a single gift.
  *
- * Loading it automatically would spend the shared API budget on every page
- * view, so the call is behind a button.
+ * Deliberately not auto-loaded: every view would otherwise cost a call,
+ * and most visits to a gift page are just browsing.
  */
-export function AiVerdict({ giftId, authenticated }: Props) {
-  const [enabled, setEnabled] = useState(false);
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+export function AiVerdict({ giftId, enabled, authenticated }: { giftId: number; enabled: boolean; authenticated: boolean }) {
+  const [verdict, setVerdict] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void getAiStatus()
-      .then(status => setEnabled(status.enabled))
-      .catch(() => setEnabled(false));
-  }, []);
-
-  useEffect(() => {
-    setAnswer(null);
-    setError(null);
-  }, [giftId]);
 
   if (!enabled) return null;
 
-  const run = async () => {
-    setLoading(true);
+  const load = async () => {
+    setPending(true);
     setError(null);
     try {
-      const result = await getAiVerdict(giftId);
-      setAnswer(result.answer);
+      const reply = await getAiVerdict(giftId);
+      setVerdict(reply.answer);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ассистент недоступен");
     } finally {
-      setLoading(false);
+      setPending(false);
     }
   };
 
   return (
-    <div className="ai-card">
-      <div className="ai-card-head">
+    <div className="ai-verdict">
+      <div className="ai-head">
         <Sparkles size={16} />
         <div>
-          <strong>Мнение аналитика</strong>
-          <small>Читает цену, соседей по модели и реальные продажи этого подарка.</small>
+          <strong>Разбор от аналитика</strong>
+          <small>Оценка по нашим данным: цена, глубина и реальные сделки.</small>
         </div>
-        {!answer && (
-          <button className="outline-btn" disabled={loading || !authenticated} onClick={() => void run()}>
-            {loading ? <LoaderCircle size={14} className="spin" /> : <Sparkles size={14} />}
-            {authenticated ? "Спросить" : "Нужен вход"}
+        {!verdict && authenticated && (
+          <button className="outline-btn" onClick={() => void load()} disabled={pending}>
+            {pending ? <LoaderCircle size={14} className="spin" /> : <Sparkles size={14} />}
+            Разобрать
           </button>
         )}
       </div>
-      {answer && <p className="ai-answer">{answer}</p>}
+      {!authenticated && <p className="muted-copy">Доступно после входа через Telegram.</p>}
       {error && <p className="ai-error">{error}</p>}
+      {verdict && <pre className="ai-verdict-body">{verdict}</pre>}
     </div>
   );
 }
