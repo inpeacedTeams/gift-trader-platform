@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.core.rate_limit import Budget, RateLimitMiddleware
 from app.core.security import verify_secrets
 from app.notifications.delivery import deliver_pending_alerts
 from app.portfolio.sync import sync_portfolios
@@ -64,12 +65,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+if settings.rate_limit_enabled:
+    app.add_middleware(
+        RateLimitMiddleware,
+        read=Budget(settings.rate_limit_reads_per_minute, 60),
+        write=Budget(settings.rate_limit_writes_per_minute, 60),
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Accept", "Content-Type", "Authorization", "X-Admin-Token"],
+    expose_headers=["RateLimit-Limit", "RateLimit-Remaining", "Retry-After"],
 )
 for router in (
     overview_router,
