@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
-Marketplace = Literal["fragment", "portals", "getgems", "tonnel", "tonapi"]
+Marketplace = Literal["fragment", "portals", "getgems", "tonnel", "mrkt", "tonapi"]
 
 
 class Listing(BaseModel):

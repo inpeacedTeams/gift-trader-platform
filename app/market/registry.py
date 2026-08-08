@@ -6,6 +6,7 @@ from .base import MarketParser
 from .fragment import FragmentParser
 from .getgems import GetGemsParser
 from .http import MarketHttp
+from .mrkt import MrktParser
 from .portals import PortalsParser
 from .tonnel import TonnelParser
 
@@ -30,6 +31,13 @@ def build_parsers(
     builders: dict[str, Callable[[], MarketParser]] = {
         "tonnel": lambda: TonnelParser(
             http, settings.tonnel_endpoint, max_pages=settings.crawl_max_pages
+        ),
+        "mrkt": lambda: MrktParser(
+            http,
+            settings.mrkt_base_url,
+            token=settings.mrkt_token,
+            init_data=settings.mrkt_init_data,
+            max_pages=settings.crawl_max_pages,
         ),
         "getgems": lambda: GetGemsParser(
             http,
