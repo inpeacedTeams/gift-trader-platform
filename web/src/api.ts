@@ -1,4 +1,4 @@
-import type { ArbitrageList, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftLiquidity, GiftPage, GiftTrades, MarketEventFeed, MoversResponse, OverviewStats, SourceStatusList, WatchlistPage } from "./types";
+import type { ArbitrageList, AttributeGroups, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftLiquidity, GiftPage, GiftTrades, MarketEventFeed, MoversResponse, OverviewStats, RarityTier, SourceStatusList, WatchlistPage } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -174,6 +174,9 @@ export const getGifts = (
     marketplace?: string;
     collectionId?: number;
     model?: string;
+    backdrop?: string;
+    symbol?: string;
+    rarityTier?: RarityTier | "";
     minPrice?: string;
     maxPrice?: string;
     dealsOnly?: boolean;
@@ -188,6 +191,9 @@ export const getGifts = (
   if (options.marketplace) params.set("marketplace", options.marketplace);
   if (options.collectionId) params.set("collection_id", String(options.collectionId));
   if (options.model) params.set("model", options.model);
+  if (options.backdrop) params.set("backdrop", options.backdrop);
+  if (options.symbol) params.set("symbol", options.symbol);
+  if (options.rarityTier) params.set("rarity_tier", options.rarityTier);
   if (options.minPrice) params.set("min_price", options.minPrice);
   if (options.maxPrice) params.set("max_price", options.maxPrice);
   if (options.dealsOnly) params.set("deals_only", "true");
@@ -195,6 +201,9 @@ export const getGifts = (
 };
 export const getGiftModels = (collectionId?: number) =>
   request<string[]>(`/gifts/models${collectionId ? `?collection_id=${collectionId}` : ""}`);
+/** Traits with their scarcity and the floor each one trades at. */
+export const getGiftAttributes = (collectionId?: number) =>
+  request<AttributeGroups>(`/gifts/attributes${collectionId ? `?collection_id=${collectionId}` : ""}`);
 export const getGift = (giftId: number) => request<GiftDetail>(`/gifts/${giftId}`);
 export const getGiftHistory = (giftId: number, marketplace?: string) =>
   request<GiftHistory>(`/gifts/${giftId}/history${marketplace ? `?marketplace=${encodeURIComponent(marketplace)}` : ""}`);
