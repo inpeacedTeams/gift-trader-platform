@@ -25,10 +25,12 @@ from app.routes.movers import router as movers_router
 from app.routes.overview import router as overview_router
 from app.routes.portfolio import router as portfolio_router
 from app.routes.positions import router as positions_router
+from app.routes.selling import router as selling_router
 from app.routes.sniper import router as sniper_router
 from app.routes.source_status import router as source_status_router
 from app.routes.trends import router as trends_router
 from app.routes.user_features import router as user_features_router
+from app.routes.volatility import router as volatility_router
 from app.workers.market_sync import sync_market
 from app.workers.scheduler import MarketScheduler
 from app.workers.sniper import run_sniper
@@ -96,6 +98,8 @@ for router in (
     arbitrage_router,
     fees_router,
     positions_router,
+    selling_router,
+    volatility_router,
     sniper_router,
     analytics_router,
     trends_router,
