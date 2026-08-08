@@ -2,12 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Gift, PriceSnapshot
+from app.db.models import Collection, Gift, PriceSnapshot
 from app.db.repositories import GiftRepository, PriceHistoryRepository
 from app.db.session import get_session
 from app.schemas.frontend import GiftCard, GiftDetail, GiftHistory, GiftListing, GiftPage, PricePoint
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
+
+
+async def _collection_names(session: AsyncSession, gifts: list[Gift]) -> dict[int, str]:
+    ids = {gift.collection_id for gift in gifts if gift.collection_id}
+    if not ids:
+        return {}
+    rows = await session.scalars(select(Collection).where(Collection.id.in_(ids)))
+    return {row.id: row.name or row.slug or row.chain_address for row in rows}
 
 
 @router.get("", response_model=GiftPage)
@@ -16,18 +24,17 @@ async def gifts(
     page_size: int = Query(default=24, ge=1, le=100),
     search: str | None = None,
     marketplace: str | None = None,
-    collection_id: int | None = Query(default=None, ge=1),
+    collection_id: int | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    repository = GiftRepository(session)
-    rows, total = await repository.page(
+    rows, total = await GiftRepository(session).page(
         page=page,
         page_size=page_size,
         search=search,
         marketplace=marketplace,
         collection_id=collection_id,
     )
-    names: dict[int, str | None] = {}
+    names = await _collection_names(session, rows)
     items = []
     for gift in rows:
         point = await session.scalar(
@@ -36,8 +43,6 @@ async def gifts(
             .order_by(PriceSnapshot.observed_at.desc())
             .limit(1)
         )
-        if gift.collection_id is not None and gift.collection_id not in names:
-            names[gift.collection_id] = await repository.collection_name(gift.collection_id)
         items.append(
             GiftCard(
                 id=gift.id,
@@ -58,17 +63,17 @@ async def gifts(
 
 @router.get("/{gift_id}", response_model=GiftDetail)
 async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)):
-    repository = GiftRepository(session)
-    result = await repository.detail(gift_id)
+    result = await GiftRepository(session).detail(gift_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Gift not found")
     gift, listings = result
-    point = (await repository.latest_stats(gift_id) or [None])[0]
+    point = (await GiftRepository(session).latest_stats(gift_id) or [None])[0]
+    names = await _collection_names(session, [gift])
     return GiftDetail(
         id=gift.id,
         canonical_id=gift.canonical_id,
         collection_id=gift.collection_id,
-        collection_name=await repository.collection_name(gift.collection_id),
+        collection_name=names.get(gift.collection_id) if gift.collection_id else None,
         name=gift.name,
         model=gift.model,
         gift_number=gift.gift_number,
