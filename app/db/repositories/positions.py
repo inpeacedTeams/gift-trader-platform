@@ -1,171 +1,180 @@
-from decimal import Decimal
+from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Collection, Gift, Listing, Position
-from app.db.repositories.arbitrage import DEFAULT_FEES, DEFAULT_GAS_TON
+from app.market.economics import DEFAULT_GAS_TON, net_proceeds, sell_fee_percent
 
-# Same fallback the arbitrage scanner uses for venues it has no entry for.
-DEFAULT_SELL_FEE = Decimal("5")
 TON = Decimal("0.001")
-PCT = Decimal("0.01")
+CENT = Decimal("0.01")
+HOUR = Decimal(3600)
 
 
 class PositionRepository:
-    """The user's own book, priced against the live market.
+    """Open lots valued at what selling them today would actually pay.
 
-    Profit is computed on read rather than stored: the moment a floor moves,
-    a stored P&L is a lie, and this product's whole claim is that its numbers
-    are current.
+    Marking a position at the floor is a lie by omission: the venue keeps a
+    cut and the gas is already spent. Every figure here is net of both, and a
+    gift with no live listing is reported as unvalued rather than carried at
+    a stale price.
     """
 
-    def __init__(
-        self,
-        session: AsyncSession,
-        fees: dict[str, Decimal] | None = None,
-        gas_ton: Decimal = DEFAULT_GAS_TON,
-    ):
+    def __init__(self, session: AsyncSession, gas_ton: Decimal = DEFAULT_GAS_TON):
         self.session = session
-        self.fees = fees or DEFAULT_FEES
         self.gas_ton = gas_ton
 
-    def _fee(self, marketplace: str | None) -> Decimal:
-        return self.fees.get(marketplace or "", DEFAULT_SELL_FEE)
-
-    def _net_sale(self, marketplace: str | None, price: Decimal) -> Decimal:
-        return price - price * self._fee(marketplace) / Decimal(100)
-
-    async def _cheapest_venues(self, gift_ids: list[int]) -> dict[int, str]:
-        """Venue holding the floor listing, because its fee sets the exit."""
+    async def _floors(self, gift_ids: list[int]) -> dict[int, tuple[Decimal, str]]:
         if not gift_ids:
             return {}
         rows = (
             await self.session.execute(
-                select(Listing.gift_id, Listing.marketplace)
+                select(Listing.gift_id, Listing.price_ton, Listing.marketplace)
                 .where(Listing.gift_id.in_(gift_ids), Listing.active.is_(True))
-                .distinct(Listing.gift_id)
                 .order_by(Listing.gift_id, Listing.price_ton.asc())
             )
         ).all()
-        return {gift_id: marketplace for gift_id, marketplace in rows}
+        floors: dict[int, tuple[Decimal, str]] = {}
+        for gift_id, price, marketplace in rows:
+            # Price ordered, so the first row per gift is its floor.
+            floors.setdefault(gift_id, (price, marketplace))
+        return floors
 
-    async def cards(self, user_id: int, include_closed: bool = True) -> list[dict]:
-        stmt = (
-            select(
-                Position.id,
-                Position.gift_id,
-                Position.marketplace,
-                Position.buy_price_ton,
-                Position.quantity,
-                Position.opened_at,
-                Position.sell_price_ton,
-                Position.sell_marketplace,
-                Position.closed_at,
-                Position.note,
-                Gift.name,
-                Gift.model,
-                Gift.image_url,
-                Gift.rarity_tier,
-                Gift.gift_number,
-                Collection.name.label("collection_name"),
-                func.min(Listing.price_ton).label("floor_ton"),
-                func.percentile_cont(0.5).within_group(Listing.price_ton.asc()).label("median_ton"),
+    async def _gifts(self, gift_ids: list[int]) -> dict[int, tuple]:
+        if not gift_ids:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(
+                    Gift.id,
+                    Gift.name,
+                    Gift.model,
+                    Gift.gift_number,
+                    Gift.image_url,
+                    Gift.rarity_tier,
+                    Collection.name.label("collection_name"),
+                )
+                .outerjoin(Collection, Collection.id == Gift.collection_id)
+                .where(Gift.id.in_(gift_ids))
             )
-            .join(Gift, Gift.id == Position.gift_id)
-            .outerjoin(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
-            .outerjoin(Collection, Collection.id == Gift.collection_id)
-            .where(Position.user_id == user_id)
-            .group_by(Position.id, Gift.id, Collection.name)
-            # Open positions first: they are the ones that still need a decision.
-            .order_by(Position.closed_at.is_(None).desc(), Position.opened_at.desc())
-        )
-        if not include_closed:
-            stmt = stmt.where(Position.closed_at.is_(None))
-        rows = (await self.session.execute(stmt)).all()
-        venues = await self._cheapest_venues([row.gift_id for row in rows])
+        ).all()
+        return {row.id: row for row in rows}
 
-        cards: list[dict] = []
-        for row in rows:
-            quantity = max(int(row.quantity or 1), 1)
-            buy = Decimal(row.buy_price_ton)
-            # Gas was spent getting in, so it belongs to the cost basis.
-            cost_per_unit = buy + self.gas_ton
-            is_open = row.closed_at is None or row.sell_price_ton is None
-            floor = Decimal(row.floor_ton) if row.floor_ton is not None else None
+    def _exit_venue(self, position: Position, floor_venue: str | None) -> str | None:
+        """Where the exit would happen: the stated plan, else where it was
+        bought, else wherever the gift currently trades."""
+        return position.sell_marketplace or position.buy_marketplace or floor_venue
 
-            if is_open:
-                venue = venues.get(row.gift_id) or row.marketplace
-                exit_net = self._net_sale(venue, floor) if floor is not None else None
-            else:
-                venue = row.sell_marketplace or row.marketplace
-                exit_net = self._net_sale(venue, Decimal(row.sell_price_ton))
+    def _card(self, position: Position, gift, floor: tuple[Decimal, str] | None) -> dict:
+        now = datetime.now(timezone.utc)
+        opened = position.opened_at or position.created_at
+        until = position.closed_at or now
+        held_hours = Decimal((until - opened).total_seconds()) / HOUR if opened else Decimal(0)
+        # Gas was paid on the way in, so it belongs in the cost basis.
+        cost = position.buy_price_ton + self.gas_ton
+        floor_price, floor_venue = floor if floor else (None, None)
+        venue = self._exit_venue(position, floor_venue)
 
-            profit = (exit_net - cost_per_unit) * quantity if exit_net is not None else None
-            basis = cost_per_unit * quantity
-            roi = profit / basis * Decimal(100) if profit is not None and basis > 0 else None
+        if position.closed_at and position.sell_price_ton is not None:
+            proceeds = net_proceeds(position.sell_marketplace or venue, position.sell_price_ton)
+            valued = True
+        elif floor_price is not None:
+            proceeds = net_proceeds(venue, floor_price)
+            valued = True
+        else:
+            proceeds = None
+            valued = False
 
-            cards.append(
-                {
-                    "id": row.id,
-                    "gift_id": row.gift_id,
-                    "name": row.name or row.collection_name,
-                    "model": row.model,
-                    "image_url": row.image_url,
-                    "rarity_tier": row.rarity_tier,
-                    "gift_number": row.gift_number,
-                    "collection_name": row.collection_name,
-                    "marketplace": row.marketplace,
-                    "buy_price_ton": buy,
-                    "quantity": quantity,
-                    "opened_at": row.opened_at,
-                    "closed_at": row.closed_at,
-                    "sell_price_ton": row.sell_price_ton,
-                    "sell_marketplace": row.sell_marketplace,
-                    "note": row.note,
-                    "floor_ton": floor,
-                    "median_ton": Decimal(row.median_ton) if row.median_ton is not None else None,
-                    "exit_venue": venue,
-                    "exit_net_ton": exit_net.quantize(TON) if exit_net is not None else None,
-                    "cost_basis_ton": basis.quantize(TON),
-                    "profit_ton": profit.quantize(TON) if profit is not None else None,
-                    "roi_percent": roi.quantize(PCT) if roi is not None else None,
-                    "is_open": is_open,
-                }
-            )
-        return cards
-
-    def summary(self, cards: list[dict]) -> dict:
-        """Book level numbers, derived from the same cards the UI renders.
-
-        Positions whose gift has no active listing are counted separately
-        instead of being valued at zero, which would report a fake loss.
-        """
-        open_cards = [card for card in cards if card["is_open"]]
-        closed_cards = [card for card in cards if not card["is_open"]]
-        priced = [card for card in open_cards if card["exit_net_ton"] is not None]
-
-        invested = sum((card["cost_basis_ton"] for card in open_cards), Decimal(0))
-        market_value = sum(
-            (card["exit_net_ton"] * card["quantity"] for card in priced), Decimal(0)
-        )
-        unrealized = sum((card["profit_ton"] for card in priced), Decimal(0))
-        realized = sum(
-            (card["profit_ton"] for card in closed_cards if card["profit_ton"] is not None),
-            Decimal(0),
-        )
-        wins = [card for card in closed_cards if (card["profit_ton"] or Decimal(0)) > 0]
-        win_rate = (
-            Decimal(len(wins)) / Decimal(len(closed_cards)) * Decimal(100) if closed_cards else None
+        profit = None if proceeds is None else proceeds - cost
+        percent = (
+            None
+            if profit is None or cost <= 0
+            else (profit / cost * Decimal(100)).quantize(CENT, rounding=ROUND_HALF_UP)
         )
         return {
-            "open_count": len(open_cards),
-            "closed_count": len(closed_cards),
-            "unpriced_count": len(open_cards) - len(priced),
-            "invested_ton": invested.quantize(TON),
-            "market_value_ton": market_value.quantize(TON),
-            "unrealized_ton": unrealized.quantize(TON),
-            "realized_ton": realized.quantize(TON),
-            "wins": len(wins),
-            "win_rate_percent": win_rate.quantize(PCT) if win_rate is not None else None,
+            "id": position.id,
+            "gift_id": position.gift_id,
+            "name": getattr(gift, "name", None),
+            "model": getattr(gift, "model", None),
+            "gift_number": getattr(gift, "gift_number", None),
+            "image_url": getattr(gift, "image_url", None),
+            "rarity_tier": getattr(gift, "rarity_tier", None),
+            "collection_name": getattr(gift, "collection_name", None),
+            "buy_price_ton": position.buy_price_ton,
+            "buy_marketplace": position.buy_marketplace,
+            "opened_at": opened,
+            "sell_price_ton": position.sell_price_ton,
+            "sell_marketplace": position.sell_marketplace,
+            "closed_at": position.closed_at,
+            "note": position.note,
+            "is_open": position.closed_at is None,
+            "days_held": int(held_hours / 24) if held_hours > 0 else 0,
+            "cost_ton": cost.quantize(TON, rounding=ROUND_HALF_UP),
+            "gas_ton": self.gas_ton,
+            "exit_marketplace": venue,
+            "exit_fee_percent": sell_fee_percent(venue),
+            "floor_ton": floor_price,
+            "net_value_ton": None if proceeds is None else proceeds.quantize(TON, rounding=ROUND_HALF_UP),
+            "profit_ton": None if profit is None else profit.quantize(TON, rounding=ROUND_HALF_UP),
+            "profit_percent": percent,
+            "valued": valued,
         }
+
+    async def list(self, user_id: int, include_closed: bool = True) -> dict:
+        query = select(Position).where(Position.user_id == user_id)
+        if not include_closed:
+            query = query.where(Position.closed_at.is_(None))
+        rows = list((await self.session.scalars(query.order_by(Position.opened_at.desc()))).all())
+        gift_ids = [row.gift_id for row in rows]
+        floors = await self._floors(gift_ids)
+        gifts = await self._gifts(gift_ids)
+        items = [self._card(row, gifts.get(row.gift_id), floors.get(row.gift_id)) for row in rows]
+
+        invested = sum(
+            (item["cost_ton"] for item in items if item["is_open"]), Decimal(0)
+        )
+        market_value = sum(
+            (item["net_value_ton"] for item in items if item["is_open"] and item["valued"]),
+            Decimal(0),
+        )
+        unrealized = sum(
+            (item["profit_ton"] for item in items if item["is_open"] and item["valued"]),
+            Decimal(0),
+        )
+        realized = sum(
+            (item["profit_ton"] for item in items if not item["is_open"] and item["valued"]),
+            Decimal(0),
+        )
+        closed = [item for item in items if not item["is_open"] and item["valued"]]
+        winners = [item for item in closed if item["profit_ton"] > 0]
+        # Percent is against invested capital, and only over lots we can price.
+        priced = sum(
+            (item["cost_ton"] for item in items if item["is_open"] and item["valued"]),
+            Decimal(0),
+        )
+        summary = {
+            "open_count": sum(1 for item in items if item["is_open"]),
+            "closed_count": len(closed),
+            "unvalued_count": sum(1 for item in items if item["is_open"] and not item["valued"]),
+            "invested_ton": invested.quantize(TON, rounding=ROUND_HALF_UP),
+            "market_value_ton": market_value.quantize(TON, rounding=ROUND_HALF_UP),
+            "unrealized_ton": unrealized.quantize(TON, rounding=ROUND_HALF_UP),
+            "unrealized_percent": (
+                (unrealized / priced * Decimal(100)).quantize(CENT, rounding=ROUND_HALF_UP)
+                if priced > 0
+                else None
+            ),
+            "realized_ton": realized.quantize(TON, rounding=ROUND_HALF_UP),
+            "win_rate_percent": (
+                (Decimal(len(winners)) / Decimal(len(closed)) * Decimal(100)).quantize(CENT)
+                if closed
+                else None
+            ),
+        }
+        return {"items": items, "summary": summary}
+
+    async def card(self, position: Position) -> dict:
+        floors = await self._floors([position.gift_id])
+        gifts = await self._gifts([position.gift_id])
+        return self._card(position, gifts.get(position.gift_id), floors.get(position.gift_id))
