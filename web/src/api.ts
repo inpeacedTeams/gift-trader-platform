@@ -1,4 +1,4 @@
-import type { ArbitrageList, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MoversResponse, OverviewStats, SourceStatusList, WatchlistPage } from "./types";
+import type { ArbitrageList, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftLiquidity, GiftPage, GiftTrades, MarketEventFeed, MoversResponse, OverviewStats, SourceStatusList, WatchlistPage } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -72,6 +72,16 @@ export type AlertEvent = GiftLabel & {
   is_read: boolean;
   created_at: string;
 };
+export type SniperWatch = {
+  id: number;
+  gift_name?: string | null;
+  model?: string | null;
+  max_price_ton?: string | null;
+  min_discount_percent?: string | null;
+  marketplace?: string | null;
+  is_active: boolean;
+  hits: number;
+};
 export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit?: number };
 export type AiAnswer = { answer: string; model: string; grounded_in?: string; remaining?: number; cached?: boolean };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
@@ -89,6 +99,21 @@ export const addToWatchlist = (giftId: number) => request(`/watchlist/${giftId}`
 export const removeFromWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "DELETE" });
 
 export const getSourceStatus = () => request<SourceStatusList>("/sources/status");
+
+/** Sniper: standing orders for the fast loop. */
+export const getWatches = () => request<{ items: SniperWatch[] }>("/sniper/watches");
+export const createWatch = (payload: {
+  gift_name?: string;
+  model?: string;
+  max_price_ton?: string;
+  min_discount_percent?: string;
+  marketplace?: string;
+}) => request<SniperWatch>("/sniper/watches", { method: "POST", body: JSON.stringify(payload) });
+export const toggleWatch = (watchId: number, isActive: boolean) =>
+  request<SniperWatch>(`/sniper/watches/${watchId}?is_active=${isActive}`, { method: "PATCH" });
+export const deleteWatch = (watchId: number) => request(`/sniper/watches/${watchId}`, { method: "DELETE" });
+export const getGiftLiquidity = (giftId: number) =>
+  request<GiftLiquidity>(`/sniper/gifts/${giftId}/liquidity`);
 
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
