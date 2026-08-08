@@ -17,6 +17,7 @@ import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
 import { Movers } from "./components/Movers";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
+import { Assistant } from "./pages/Assistant";
 import { Collections } from "./pages/Collections";
 import { Deals } from "./pages/Deals";
 import { Gifts, type CollectionFilter } from "./pages/Gifts";
@@ -28,7 +29,7 @@ import { Alerts } from "./pages/Alerts";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
-const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
+const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", assistant: "Assistant", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -120,6 +121,8 @@ export default function App() {
       <Collections onOpen={openCollection} />
     ) : view === "deals" ? (
       <Deals onOpen={openGift} />
+    ) : view === "assistant" ? (
+      <Assistant authenticated={Boolean(user)} />
     ) : view === "gifts" ? (
       selectedGift === null ? (
         <Gifts
@@ -204,7 +207,7 @@ export default function App() {
             </button>
           </div>
         </header>
-        {error && view !== "gifts" && view !== "collections" && view !== "deals" ? (
+        {error && view !== "gifts" && view !== "collections" && view !== "deals" && view !== "assistant" ? (
           <ErrorState detail={error} retry={() => void refresh()} />
         ) : (
           page
