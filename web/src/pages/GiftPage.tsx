@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Layers } from "lucide-react";
+import { ArrowLeft, ExternalLink, Layers, Tag } from "lucide-react";
 import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
@@ -7,6 +7,7 @@ import { GiftImage } from "../components/GiftImage";
 import { PriceChart } from "../components/PriceChart";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
+import "../catalog-deals.css";
 
 type Props = {
   giftId: number;
@@ -43,6 +44,7 @@ export function GiftPage({ giftId, onBack, onOpenCollection }: Props) {
 
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
+  const deal = gift.deal_percent === null || gift.deal_percent === undefined ? null : Number(gift.deal_percent);
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   const active = gift.listings.filter(listing => listing.active);
 
@@ -73,6 +75,11 @@ export function GiftPage({ giftId, onBack, onOpenCollection }: Props) {
           <div className="gift-hero-price">
             <strong>{formatTon(gift.floor_ton)}</strong>
             {change && <span className={rising ? "trend-up" : "trend-down"}>{change} · 24h</span>}
+            {deal !== null && deal >= 1 && (
+              <span className="deal-badge inline">
+                <Tag size={11} /> {deal.toFixed(0)}% under {gift.model ?? "model"} median
+              </span>
+            )}
           </div>
         </div>
       </div>
