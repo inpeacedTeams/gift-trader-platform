@@ -1,0 +1,15 @@
+# Generated from pyproject.toml, Python 3.12
+# Direct project and development dependencies are intentionally pinned.
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic-settings==2.14.2
+httpx==0.28.1
+beautifulsoup4==4.14.3
+sqlalchemy==2.0.46
+asyncpg==0.31.0
+alembic==1.18.4
+PyJWT==2.13.0
+pytest==9.0.3
+pytest-asyncio==1.4.0
+ruff==0.15.6
+aiosqlite==0.22.1
