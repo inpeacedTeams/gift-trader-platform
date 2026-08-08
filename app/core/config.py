@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     jwt_ttl_seconds: int = 604800
     # Guards the endpoints that trigger a full crawl.
     admin_token: str | None = None
+    # Public API budgets, per caller. Reads are cheap but frequent; writes are
+    # rare and worth stopping early.
+    rate_limit_enabled: bool = True
+    rate_limit_reads_per_minute: int = 120
+    rate_limit_writes_per_minute: int = 20
     telegram_bot_token: str | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str = DEFAULT_AI_MODEL
