@@ -9,76 +9,75 @@ logger = logging.getLogger(__name__)
 
 
 class AiUnavailable(Exception):
-    """Raised when the assistant cannot answer. Never faked with a canned reply."""
-
-    def __init__(self, reason: str):
-        self.reason = reason
-        super().__init__(reason)
+    """Raised when the assistant cannot answer, with a reason worth showing."""
 
 
 @dataclass(frozen=True)
-class Answer:
-    text: str
+class AiReply:
+    content: str
     model: str
 
 
 class OpenRouterClient:
-    """Minimal OpenRouter chat client.
+    """Minimal OpenRouter caller.
 
-    The key lives on the server only. Browsers never see it, so usage stays
-    inside our own rate limits instead of leaking to anyone with devtools.
+    The API is OpenAI compatible, so a single POST is enough and pulling a
+    whole SDK in would only add weight.
     """
 
     def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
 
     @property
-    def enabled(self) -> bool:
+    def configured(self) -> bool:
         return bool(self.settings.openrouter_api_key)
 
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.settings.openrouter_api_key}",
             "Content-Type": "application/json",
-            # OpenRouter attributes traffic with these two.
+            # OpenRouter uses these for attribution on the dashboard.
             "HTTP-Referer": self.settings.openrouter_site_url,
             "X-Title": self.settings.app_name,
         }
 
-    async def complete(self, *, system: str, user: str, max_tokens: int = 700) -> Answer:
-        if not self.enabled:
-            raise AiUnavailable("assistant disabled: set OPENROUTER_API_KEY")
+    async def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        max_tokens: int = 700,
+        temperature: float = 0.2,
+    ) -> AiReply:
+        if not self.configured:
+            raise AiUnavailable("AI is not configured: set OPENROUTER_API_KEY")
         payload = {
             "model": self.settings.openrouter_model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "max_tokens": max_tokens,
-            # Low temperature: this is analysis, not creative writing.
-            "temperature": 0.2,
         }
+        url = f"{self.settings.openrouter_base_url.rstrip('/')}/chat/completions"
         try:
-            async with httpx.AsyncClient(timeout=self.settings.openrouter_timeout_seconds) as client:
-                response = await client.post(
-                    f"{self.settings.openrouter_base_url.rstrip('/')}/chat/completions",
-                    headers=self._headers(),
-                    json=payload,
-                )
+            async with httpx.AsyncClient(timeout=self.settings.ai_timeout_seconds) as client:
+                response = await client.post(url, headers=self._headers(), json=payload)
         except httpx.HTTPError as exc:
-            raise AiUnavailable(f"assistant request failed: {exc}") from exc
+            raise AiUnavailable(f"OpenRouter request failed: {exc}") from exc
+        if response.status_code == 401:
+            raise AiUnavailable("OpenRouter rejected the API key")
         if response.status_code == 429:
-            raise AiUnavailable("assistant rate limited, try again in a minute")
+            raise AiUnavailable("OpenRouter rate limit reached, try again shortly")
         if response.status_code >= 400:
-            logger.warning("openrouter error", extra={"status": response.status_code})
-            raise AiUnavailable(f"assistant returned {response.status_code}")
+            raise AiUnavailable(f"OpenRouter returned {response.status_code}")
         try:
             body = response.json()
             choice = body["choices"][0]["message"]["content"]
-            model = body.get("model") or self.settings.openrouter_model
         except (ValueError, KeyError, IndexError) as exc:
-            raise AiUnavailable("assistant returned an unreadable response") from exc
-        text = (choice or "").strip()
-        if not text:
-            raise AiUnavailable("assistant returned an empty answer")
-        return Answer(text=text, model=model)
+            raise AiUnavailable("OpenRouter returned an unexpected response") from exc
+        content = (choice or "").strip()
+        if not content:
+            raise AiUnavailable("The model returned an empty answer")
+        return AiReply(content=content, model=body.get("model", self.settings.openrouter_model))
