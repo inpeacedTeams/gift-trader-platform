@@ -13,6 +13,8 @@ class PortfolioHolding(Base):
     name: Mapped[str | None] = mapped_column(String(255))
     image_url: Mapped[str | None] = mapped_column(Text)
     estimated_price_ton: Mapped[Decimal | None] = mapped_column(Numeric(24, 9))
+    valuation_source: Mapped[str] = mapped_column(String(64), default="unresolved")
+    valuation_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     __table_args__ = (UniqueConstraint("wallet_id", "nft_address", name="uq_portfolio_wallet_nft"), Index("ix_portfolio_holdings_wallet_time", "wallet_id", "observed_at"))
 
