@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://gift_trader:gift_trader@localhost:5432/gift_trader"
     jwt_secret: str = "change-me-in-production"
     jwt_ttl_seconds: int = 604800
+    # Guards the endpoints that trigger a full crawl.
+    admin_token: str | None = None
     telegram_bot_token: str | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str = DEFAULT_AI_MODEL
