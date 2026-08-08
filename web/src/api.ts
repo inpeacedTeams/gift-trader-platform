@@ -86,10 +86,20 @@ export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit?:
 export type AiAnswer = { answer: string; model: string; grounded_in?: string; remaining?: number; cached?: boolean };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
 
+/** What a trade costs. Served by the API so the browser never guesses. */
+export type MarketplaceFee = { marketplace: string; sell_fee_percent: string };
+export type FeeSchedule = {
+  data_mode: string;
+  gas_ton: string;
+  default_sell_fee_percent: string;
+  marketplaces: MarketplaceFee[];
+};
+
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
 export const getArbitrage = (minPercent = 0, limit = 50) =>
   request<ArbitrageList>(`/arbitrage?min_profit_percent=${minPercent}&limit=${limit}`);
+export const getFees = () => request<FeeSchedule>("/fees");
 export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
 
