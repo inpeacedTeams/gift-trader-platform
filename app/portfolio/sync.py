@@ -7,14 +7,11 @@ from app.db.session import SessionLocal
 from app.market.models import SourceUnavailable
 from app.portfolio.tonapi import TonapiPortfolioClient
 from app.portfolio.valuation import latest_floor, resolve_gift
+from app.portfolio.resolver_telemetry import record_attempt
 
 @dataclass(frozen=True)
 class PortfolioSyncReport:
-    wallets: int
-    synced_wallets: int
-    holdings: int
-    unavailable: int
-    alerts: int = 0
+    wallets: int; synced_wallets: int; holdings: int; unavailable: int; alerts: int = 0
 
 async def sync_portfolios() -> PortfolioSyncReport:
     client = TonapiPortfolioClient()
@@ -28,7 +25,8 @@ async def sync_portfolios() -> PortfolioSyncReport:
                     if not address: continue
                     address = str(address); seen.append(address); metadata = item.get("metadata") or {}
                     collection_address = str(item.get("collection", {}).get("address")) if isinstance(item.get("collection"), dict) and item.get("collection", {}).get("address") else None
-                    gift, source, confidence = await resolve_gift(session, nft_address=address, collection_address=collection_address, metadata=metadata)
+                    gift, source, confidence, candidates = await resolve_gift(session, nft_address=address, collection_address=collection_address, metadata=metadata)
+                    await record_attempt(session, nft_address=address, collection_address=collection_address, outcome=source, method="exact_or_collection_name_model", candidate_count=candidates, confidence=float(confidence) if confidence is not None else None, metadata_name=metadata.get("name"), metadata_model=str(metadata.get("model")) if metadata.get("model") else None)
                     price = await latest_floor(session, gift)
                     holding = await session.scalar(select(PortfolioHolding).where(PortfolioHolding.wallet_id == wallet.id, PortfolioHolding.nft_address == address))
                     if holding is None: holding = PortfolioHolding(wallet_id=wallet.id, nft_address=address); session.add(holding)
