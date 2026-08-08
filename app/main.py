@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.core.config import get_settings
 from app.notifications.delivery import deliver_pending_alerts
 from app.portfolio.sync import sync_portfolios
+from app.routes.ai import router as ai_router
 from app.routes.analytics import router as analytics_router
 from app.routes.arbitrage import router as arbitrage_router
 from app.routes.auth import router as auth_router
@@ -79,6 +80,7 @@ for router in (
     auth_router,
     user_features_router,
     portfolio_router,
+    ai_router,
 ):
     app.include_router(router, prefix=settings.api_prefix)
 
