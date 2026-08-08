@@ -35,6 +35,13 @@ function giftTitle(item: { name?: string | null; model?: string | null; gift_id?
   return item.name ?? item.model ?? `Gift #${item.gift_id ?? ""}`;
 }
 
+function heldLabel(days: number): string {
+  if (days <= 0) return "сегодня";
+  if (days === 1) return "1 день";
+  if (days < 5) return `${days} дня`;
+  return `${days} дней`;
+}
+
 /** The flipper's own book.
  *
  * Every other screen prices the market; this one prices the user. Open lots
@@ -175,7 +182,8 @@ function Summary({ summary }: { summary: PositionSummary }) {
           <span>Сейчас стоит</span>
           <strong>{formatTon(summary.market_value_ton)}</strong>
           <small className={unrealized >= 0 ? "pos-up" : "pos-down"}>
-            {formatTonDelta(summary.unrealized_ton)} нереализовано
+            {formatTonDelta(summary.unrealized_ton)}
+            {summary.unrealized_percent ? ` · ${formatPercent(summary.unrealized_percent)}` : ""} нереализовано
           </small>
         </div>
         <div className="metric violet">
@@ -183,15 +191,15 @@ function Summary({ summary }: { summary: PositionSummary }) {
           <strong className={realized >= 0 ? "pos-up" : "pos-down"}>{formatTonDelta(summary.realized_ton)}</strong>
           <small>
             {winRate
-              ? `винрейт ${winRate} · ${formatCount(summary.wins)} из ${formatCount(summary.closed_count)}`
+              ? `винрейт ${winRate} на ${formatCount(summary.closed_count)} сделках`
               : "нет закрытых сделок"}
           </small>
         </div>
       </div>
-      {summary.unpriced_count > 0 && (
+      {summary.unvalued_count > 0 && (
         <p className="pos-note">
-          {formatCount(summary.unpriced_count)} позиций без активных лотов на рынке: их стоимость неизвестна, поэтому
-          они не попадают в итоги.
+          {formatCount(summary.unvalued_count)} позиций без активных лотов на рынке: их стоимость неизвестна,
+          поэтому они не попадают в итоги.
         </p>
       )}
     </>
@@ -214,7 +222,12 @@ function PositionRow({
 
   const profit = toNumber(position.profit_ton);
   const title = giftTitle(position);
-  const meta = [position.model, position.gift_number ? `#${position.gift_number}` : null, position.marketplace]
+  const meta = [
+    position.model,
+    position.gift_number ? `#${position.gift_number}` : null,
+    position.buy_marketplace,
+    heldLabel(position.days_held),
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -244,20 +257,20 @@ function PositionRow({
       </button>
 
       <div className="pos-cell">
-        <b>{formatTon(position.cost_basis_ton)}
-        </b>
+        <b>{formatTon(position.cost_ton)}</b>
         <small>
-          вход {formatTon(position.buy_price_ton)}
-          {position.quantity > 1 ? ` × ${position.quantity}` : ""}
+          вход {formatTon(position.buy_price_ton)} + газ {formatTon(position.gas_ton)}
         </small>
       </div>
 
       <div className="pos-cell">
         {position.is_open ? (
-          position.exit_net_ton ? (
+          position.valued ? (
             <>
-              <b>{formatTon(position.exit_net_ton)}</b>
-              <small>чистыми{position.exit_venue ? ` на ${position.exit_venue}` : ""}</small>
+              <b>{formatTon(position.net_value_ton)}</b>
+              <small>
+                чистыми{position.exit_marketplace ? ` на ${position.exit_marketplace}` : ""}
+              </small>
             </>
           ) : (
             <>
@@ -279,7 +292,9 @@ function PositionRow({
         ) : (
           <>
             <b className={profit >= 0 ? "pos-up" : "pos-down"}>{formatTonDelta(position.profit_ton)}</b>
-            <small className={profit >= 0 ? "pos-up" : "pos-down"}>{formatPercent(position.roi_percent) ?? ""}</small>
+            <small className={profit >= 0 ? "pos-up" : "pos-down"}>
+              {formatPercent(position.profit_percent) ?? ""}
+            </small>
           </>
         )}
       </div>
@@ -300,7 +315,11 @@ function PositionRow({
               <button
                 className="pos-confirm"
                 disabled={busy || !sellPrice}
-                onClick={() => void run(() => closePosition(position.id, sellPrice))}
+                onClick={() =>
+                  void run(() =>
+                    closePosition(position.id, sellPrice, position.exit_marketplace ?? undefined)
+                  )
+                }
                 aria-label="Подтвердить продажу"
               >
                 <Check size={15} />
@@ -346,7 +365,6 @@ function AddPosition({ onCreated }: { onCreated: () => void }) {
   const [results, setResults] = useState<GiftCard[]>([]);
   const [gift, setGift] = useState<GiftCard | null>(null);
   const [price, setPrice] = useState("");
-  const [quantity, setQuantity] = useState("1");
   const [venue, setVenue] = useState(VENUES[0]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -382,8 +400,7 @@ function AddPosition({ onCreated }: { onCreated: () => void }) {
       await openPosition({
         gift_id: gift.id,
         buy_price_ton: price,
-        marketplace: venue,
-        quantity: Number(quantity) || 1,
+        buy_marketplace: venue,
         note: note.trim() || undefined,
       });
       onCreated();
@@ -435,16 +452,6 @@ function AddPosition({ onCreated }: { onCreated: () => void }) {
             value={price}
             onChange={event => setPrice(event.target.value)}
             placeholder="0"
-          />
-        </label>
-        <label>
-          <span>Количество</span>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={quantity}
-            onChange={event => setQuantity(event.target.value)}
           />
         </label>
         <label>
