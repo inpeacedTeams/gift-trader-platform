@@ -3,10 +3,10 @@ import { ArrowLeft, ExternalLink, Layers, Tag } from "lucide-react";
 import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
-import { AddPosition } from "../components/AddPosition";
 import { FlipCalc } from "../components/FlipCalc";
 import { GiftImage } from "../components/GiftImage";
 import { Liquidity } from "../components/Liquidity";
+import { LogBuy } from "../components/LogBuy";
 import { PriceChart } from "../components/PriceChart";
 import { QuickAlert } from "../components/QuickAlert";
 import { RarityBadge, TraitGrid } from "../components/Rarity";
@@ -57,6 +57,10 @@ export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onO
   const deal = gift.deal_percent === null || gift.deal_percent === undefined ? null : Number(gift.deal_percent);
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   const active = gift.listings.filter(listing => listing.active);
+  // Where a buy would actually happen, so the purchase log opens on the right venue.
+  const cheapest = active.length
+    ? active.reduce((best, listing) => (Number(listing.price_ton) < Number(best.price_ton) ? listing : best))
+    : null;
 
   return (
     <section className="page-section">
@@ -91,18 +95,18 @@ export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onO
               </span>
             )}
           </div>
+          <LogBuy
+            giftId={gift.id}
+            floorTon={gift.floor_ton}
+            venue={cheapest ? cheapest.marketplace : gift.best_marketplace}
+            authenticated={authenticated}
+          />
         </div>
       </div>
       <TraitGrid gift={gift} />
       <Verdict giftId={gift.id} authenticated={authenticated} enabled={aiEnabled} />
       <Liquidity giftId={gift.id} />
       <FlipCalc floorTon={gift.floor_ton} medianTon={gift.median_ton} venues={gift.sources} />
-      <AddPosition
-        giftId={gift.id}
-        floorTon={gift.floor_ton}
-        venues={gift.sources}
-        authenticated={authenticated}
-      />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">
