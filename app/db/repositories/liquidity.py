@@ -47,13 +47,13 @@ class LiquidityRepository:
                 .group_by(Listing.gift_id)
             )
         ).all()
+        # Trades already carry gift_id. Joining listings here multiplied every
+        # sale by the number of listings the gift has.
         sales = (
             await self.session.execute(
-                select(Listing.gift_id, func.count(Trade.id))
-                .select_from(Trade)
-                .join(Listing, Listing.gift_id == Trade.gift_id)
+                select(Trade.gift_id, func.count(Trade.id))
                 .where(Trade.gift_id.in_(gift_ids), Trade.traded_at >= since)
-                .group_by(Listing.gift_id)
+                .group_by(Trade.gift_id)
             )
         ).all()
         depth = (
@@ -66,12 +66,13 @@ class LiquidityRepository:
 
         sales_by_gift = {gift_id: count for gift_id, count in sales}
         depth_by_gift = {gift_id: count for gift_id, count in depth}
+        weeks = Decimal(WINDOW_DAYS) / Decimal(7)
         result: dict[int, dict] = {}
         for gift_id, median_hours, closed_count in closed:
             result[gift_id] = {
                 "median_hours_to_sell": round(float(median_hours), 1) if median_hours else None,
                 "closed_listings": int(closed_count or 0),
-                "sales_per_week": round(sales_by_gift.get(gift_id, 0) / (WINDOW_DAYS / 7), 2),
+                "sales_per_week": float(round(Decimal(sales_by_gift.get(gift_id, 0)) / weeks, 2)),
                 "active_depth": depth_by_gift.get(gift_id, 0),
                 "confident": int(closed_count or 0) >= MIN_OBSERVATIONS,
             }
@@ -81,7 +82,7 @@ class LiquidityRepository:
                 {
                     "median_hours_to_sell": None,
                     "closed_listings": 0,
-                    "sales_per_week": round(sales_by_gift.get(gift_id, 0) / (WINDOW_DAYS / 7), 2),
+                    "sales_per_week": float(round(Decimal(sales_by_gift.get(gift_id, 0)) / weeks, 2)),
                     "active_depth": depth_by_gift.get(gift_id, 0),
                     "confident": False,
                 },

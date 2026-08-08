@@ -10,8 +10,9 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.db.models import AlertEvent, Gift, Listing, SniperHit, SniperWatch
@@ -30,6 +31,11 @@ SNIPE_PAGES = 1
 class SnipeReport:
     scanned: int
     hits: int
+
+
+def _ton(value: Decimal) -> str:
+    """90.000000000 is noise. Print what a person would write."""
+    return format(value.normalize(), "f")
 
 
 def _matches(watch: SniperWatch, gift: Gift, listing: Listing, peer_median: Decimal | None) -> bool:
@@ -60,9 +66,9 @@ def _message(gift: Gift, listing: Listing, discount: Decimal | None) -> str:
         "🎯 Снайпер",
         "",
         title,
-        f"{listing.price_ton:f} TON на {listing.marketplace}",
+        f"{_ton(listing.price_ton)} TON на {listing.marketplace}",
     ]
-    if discount is not None:
+    if discount is not None and discount > 0:
         lines.append(f"На {discount:.0f}% ниже медианы модели")
     if listing.url:
         lines.extend(["", listing.url])
@@ -75,8 +81,9 @@ async def run_sniper(settings: Settings | None = None) -> SnipeReport:
         watches = list(
             (await session.scalars(select(SniperWatch).where(SniperWatch.is_active.is_(True)))).all()
         )
-        if not watches:
-            return SnipeReport(0, 0)
+    # Nobody is watching, so there is no reason to hit the marketplaces.
+    if not watches:
+        return SnipeReport(0, 0)
 
     parsers = build_parsers(settings=settings)
     for parser in parsers:
@@ -148,9 +155,17 @@ async def run_sniper(settings: Settings | None = None) -> SnipeReport:
     return SnipeReport(scanned, hits)
 
 
-async def _peer_medians(session, gift_ids: set[int]) -> dict[tuple[int | None, str | None], Decimal]:
-    from sqlalchemy import func
+async def _peer_medians(
+    session: AsyncSession, gift_ids: set[int]
+) -> dict[tuple[int | None, str | None], Decimal]:
+    """Model medians for the collections we just touched.
 
+    Scoped on purpose: aggregating every active listing on the market every
+    twenty seconds is a lot of work for a handful of new lots.
+    """
+    collections = select(Gift.collection_id).where(
+        Gift.id.in_(gift_ids), Gift.collection_id.is_not(None)
+    )
     rows = (
         await session.execute(
             select(
@@ -159,7 +174,7 @@ async def _peer_medians(session, gift_ids: set[int]) -> dict[tuple[int | None, s
                 func.percentile_cont(0.5).within_group(Listing.price_ton.asc()),
             )
             .join(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
-            .where(Gift.collection_id.is_not(None), Gift.model.is_not(None))
+            .where(Gift.collection_id.in_(collections), Gift.model.is_not(None))
             .group_by(Gift.collection_id, Gift.model)
         )
     ).all()
