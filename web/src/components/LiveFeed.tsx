@@ -8,6 +8,7 @@ import "./live-feed.css";
 
 const POLL_MS = 15000;
 const MAX_ROWS = 30;
+const HIGHLIGHT_MS = 2500;
 
 const LABELS: Record<string, string> = {
   listed: "выставлен",
@@ -33,24 +34,30 @@ export function LiveFeed({ onOpen }: { onOpen: (giftId: number) => void }) {
   const [freshIds, setFreshIds] = useState<Set<number>>(new Set());
   const [live, setLive] = useState(false);
   const cursor = useRef<number | null>(null);
+  const loaded = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let highlightTimer: ReturnType<typeof setTimeout> | undefined;
 
     const pull = async () => {
       try {
         const feed = await getEvents({ afterId: cursor.current ?? undefined, limit: MAX_ROWS });
         if (cancelled) return;
         setLive(true);
-        if (!feed.items.length) return;
-        const incoming = feed.items;
-        cursor.current = feed.latest_id ?? cursor.current;
-        setItems(current => [...incoming, ...current].slice(0, MAX_ROWS));
-        // Only flag arrivals after the first load, or everything would flash.
-        if (cursor.current !== null && items.length) {
-          setFreshIds(new Set(incoming.map(item => item.id)));
-          setTimeout(() => !cancelled && setFreshIds(new Set()), 2500);
+        if (feed.items.length) {
+          cursor.current = feed.latest_id ?? cursor.current;
+          setItems(current => [...feed.items, ...current].slice(0, MAX_ROWS));
+          // The very first page is history, not news, so it does not flash.
+          if (loaded.current) {
+            setFreshIds(new Set(feed.items.map(item => item.id)));
+            clearTimeout(highlightTimer);
+            highlightTimer = setTimeout(() => {
+              if (!cancelled) setFreshIds(new Set());
+            }, HIGHLIGHT_MS);
+          }
         }
+        loaded.current = true;
       } catch {
         if (!cancelled) setLive(false);
       }
@@ -61,8 +68,8 @@ export function LiveFeed({ onOpen }: { onOpen: (giftId: number) => void }) {
     return () => {
       cancelled = true;
       clearInterval(timer);
+      clearTimeout(highlightTimer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
