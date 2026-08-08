@@ -1,0 +1,102 @@
+.volatility-panel {
+  padding: 18px 20px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #151c27, #10151c);
+}
+
+.volatility-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.volatility-head > svg {
+  color: #c7a0ff;
+  flex: none;
+}
+
+.volatility-head strong {
+  display: block;
+  font-size: 13px;
+}
+
+.volatility-head small {
+  display: block;
+  margin-top: 3px;
+  color: #8793a3;
+  font-size: 11px;
+}
+
+.vol-badge {
+  margin-left: auto;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.vol-calm {
+  background: rgba(131, 231, 179, 0.12);
+  color: #83e7b3;
+}
+
+.vol-normal {
+  background: rgba(156, 186, 255, 0.12);
+  color: #9cbaff;
+}
+
+.vol-active {
+  background: rgba(232, 192, 125, 0.12);
+  color: #e8c07d;
+}
+
+.vol-wild {
+  background: rgba(255, 143, 143, 0.12);
+  color: #ff8f8f;
+}
+
+.vol-unknown {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8793a3;
+}
+
+.volatility-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.volatility-grid span {
+  display: block;
+  color: #8793a3;
+  font-size: 10px;
+}
+
+.volatility-grid b {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+.volatility-grid em {
+  color: #8793a3;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.volatility-note {
+  margin: 14px 0 0;
+  color: #8793a3;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (max-width: 620px) {
+  .volatility-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

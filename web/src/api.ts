@@ -142,6 +142,78 @@ export type PositionSummary = {
 };
 export type PositionList = { data_mode: string; items: PositionCard[]; summary: PositionSummary };
 
+/** A seller handle known to belong to this user.
+ *
+ * `source` is "telegram" when it came from the login, which is the only kind
+ * we can vouch for, and "manual" when the user claimed it themselves.
+ */
+export type SellerIdentity = {
+  id: number;
+  seller: string;
+  marketplace?: string | null;
+  source: string;
+  created_at: string;
+};
+
+/** One of the user's own listings, with the competition beside it. */
+export type MyListing = {
+  listing_id: number;
+  gift_id: number;
+  name?: string | null;
+  model?: string | null;
+  backdrop?: string | null;
+  symbol?: string | null;
+  rarity_tier?: RarityTier | null;
+  gift_number?: number | null;
+  image_url?: string | null;
+  collection_name?: string | null;
+  marketplace: string;
+  price_ton: string;
+  net_proceeds_ton: string;
+  url?: string | null;
+  listed_at: string;
+  rival_price_ton?: string | null;
+  rival_marketplace?: string | null;
+  rival_url?: string | null;
+  rival_gift_id?: number | null;
+  competitors: number;
+  undercut: boolean;
+  undercut_percent?: string | null;
+};
+export type SellingSummary = {
+  listed_count: number;
+  undercut_count: number;
+  listed_value_ton: string;
+  net_value_ton: string;
+};
+export type SellingPage = {
+  data_mode: string;
+  items: MyListing[];
+  summary: SellingSummary;
+  identities: SellerIdentity[];
+};
+
+/** How much a gift's floor moves, measured on observations we stored.
+ *
+ * `confident` is false while the series is too short, so the interface can
+ * admit it does not know instead of printing a number built on noise.
+ */
+export type GiftVolatility = {
+  window_days: number;
+  samples: number;
+  observed_days: number;
+  price_changes: number;
+  changes_per_day?: number | null;
+  low_ton?: string | null;
+  high_ton?: string | null;
+  range_percent?: string | null;
+  daily_percent?: string | null;
+  max_move_percent?: string | null;
+  max_drawdown_percent?: string | null;
+  confident: boolean;
+  label: string;
+};
+
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
 export const getArbitrage = (minPercent = 0, limit = 50) =>
@@ -171,6 +243,22 @@ export const toggleWatch = (watchId: number, isActive: boolean) =>
 export const deleteWatch = (watchId: number) => request(`/sniper/watches/${watchId}`, { method: "DELETE" });
 export const getGiftLiquidity = (giftId: number) =>
   request<GiftLiquidity>(`/sniper/gifts/${giftId}/liquidity`);
+
+/** How jumpy the floor is. Fourteen days is long enough to have a shape and
+ *  short enough that last month's regime does not pollute today's answer. */
+export const getGiftVolatility = (giftId: number, windowDays = 14) =>
+  request<GiftVolatility>(`/volatility/gifts/${giftId}?window_days=${windowDays}`);
+
+/** Selling: the same market, seen from behind your own listings. */
+export const getMyListings = () => request<SellingPage>("/selling/listings");
+export const getSellerIdentities = () => request<{ items: SellerIdentity[] }>("/selling/identities");
+export const addSellerIdentity = (seller: string, marketplace?: string) =>
+  request<SellerIdentity>("/selling/identities", {
+    method: "POST",
+    body: JSON.stringify({ seller, ...(marketplace ? { marketplace } : {}) }),
+  });
+export const removeSellerIdentity = (identityId: number) =>
+  request(`/selling/identities/${identityId}`, { method: "DELETE" });
 
 /** Positions: the user's own book, priced against the live market. */
 export const getPositions = (includeClosed = true) =>
