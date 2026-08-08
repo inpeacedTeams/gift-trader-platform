@@ -1,88 +1,90 @@
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
+from app.core.config import Settings, get_settings
+
 logger = logging.getLogger(__name__)
 
-CHAT_PATH = "/chat/completions"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
-class OpenRouterError(Exception):
-    """The assistant could not answer. Carries a message safe to show a user."""
+class AssistantUnavailable(Exception):
+    """The assistant cannot answer. Surfaced to the user, never swallowed."""
+
+
+@dataclass(frozen=True)
+class Answer:
+    text: str
+    model: str
 
 
 class OpenRouterClient:
-    """Minimal OpenRouter client.
+    """Thin wrapper over the OpenRouter chat API.
 
-    OpenRouter speaks the OpenAI chat format, so this stays deliberately thin:
-    one request, one answer, no streaming and no SDK dependency.
+    The key lives on the server only. Browsers talk to our endpoints, never
+    to OpenRouter, so the key is never shipped to a client.
     """
 
-    def __init__(
-        self,
-        api_key: str | None,
-        *,
-        base_url: str = "https://openrouter.ai/api/v1",
-        model: str = "openrouter/free",
-        timeout: float = 45.0,
-        app_url: str = "https://github.com/inpeacedTeams/gift-trader-platform",
-        app_title: str = "Gift Trader",
-    ):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.timeout = timeout
-        self.app_url = app_url
-        self.app_title = app_title
+    def __init__(self, settings: Settings | None = None):
+        self.settings = settings or get_settings()
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.settings.openrouter_api_key)
 
     def _headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.api_key}",
+        headers = {
+            "Authorization": f"Bearer {self.settings.openrouter_api_key}",
             "Content-Type": "application/json",
-            # OpenRouter uses these for attribution on its dashboard.
-            "HTTP-Referer": self.app_url,
-            "X-Title": self.app_title,
         }
+        if self.settings.openrouter_site_url:
+            headers["HTTP-Referer"] = self.settings.openrouter_site_url
+        headers["X-Title"] = self.settings.app_name
+        return headers
 
     async def complete(
         self,
-        messages: list[dict[str, str]],
         *,
+        system: str,
+        user: str,
         max_tokens: int = 700,
         temperature: float = 0.2,
-    ) -> str:
+    ) -> Answer:
         if not self.configured:
-            raise OpenRouterError("AI assistant is not configured on this server")
+            raise AssistantUnavailable(
+                "AI assistant is not configured: set OPENROUTER_API_KEY"
+            )
         payload: dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
+            "model": self.settings.openrouter_model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
             "max_tokens": max_tokens,
-            # Low temperature: this is analysis over real numbers, not creative writing.
             "temperature": temperature,
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}{CHAT_PATH}", headers=self._headers(), json=payload
-                )
+            async with httpx.AsyncClient(timeout=self.settings.openrouter_timeout_seconds) as client:
+                response = await client.post(API_URL, headers=self._headers(), json=payload)
         except httpx.HTTPError as exc:
-            logger.warning("openrouter request failed", exc_info=exc)
-            raise OpenRouterError("AI provider is unreachable right now") from exc
+            raise AssistantUnavailable(f"assistant request failed: {exc}") from exc
         if response.status_code == 429:
-            raise OpenRouterError("AI rate limit reached, try again in a minute")
+            raise AssistantUnavailable("assistant is rate limited, try again shortly")
         if response.status_code >= 400:
             logger.warning(
                 "openrouter rejected the request",
                 extra={"status": response.status_code, "body": response.text[:400]},
             )
-            raise OpenRouterError("AI provider rejected the request")
+            raise AssistantUnavailable(f"assistant returned {response.status_code}")
         try:
-            data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
-        except (ValueError, KeyError, IndexError, AttributeError) as exc:
-            raise OpenRouterError("AI returned an unreadable answer") from exc
+            body = response.json()
+            choice = body["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError) as exc:
+            raise AssistantUnavailable("assistant returned an unreadable response") from exc
+        text = (choice or "").strip()
+        if not text:
+            raise AssistantUnavailable("assistant returned an empty answer")
+        return Answer(text=text, model=body.get("model") or self.settings.openrouter_model)
