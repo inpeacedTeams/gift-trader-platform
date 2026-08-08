@@ -156,3 +156,19 @@ export type MoverCard = {
   change_percent: string;
 };
 export type MoversResponse = { data_mode: string; window_hours: number; gainers: MoverCard[]; losers: MoverCard[] };
+
+/** How quickly a gift actually converts to cash.
+ *
+ * A discount only matters if somebody buys. `confident` is false until we
+ * have observed enough completed listings to trust the median, so the UI
+ * can say "not enough data" instead of quoting a number built on one sale.
+ */
+export type GiftLiquidity = {
+  median_hours_to_sell?: number | null;
+  closed_listings: number;
+  sales_per_week: number;
+  active_depth: number;
+  confident: boolean;
+  label: string;
+  floor_gap_percent?: string | null;
+};
