@@ -11,6 +11,8 @@ REQUIRED_TABLES = {
     "listings",
     "price_snapshots",
     "market_events",
+    "sniper_watches",
+    "sniper_hits",
     "trades",
     "source_statuses",
     "users",

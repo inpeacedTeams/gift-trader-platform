@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # How deep a single crawl goes. High enough to reach the end of the book;
     # lower it if a source starts rate limiting the pass.
     crawl_max_pages: int = 200
+    # Fast lane for mispriced lots. Reads one page per source, so it is light,
+    # but at this frequency it is still steady traffic: opt in.
+    sniper_enabled: bool = False
+    sniper_interval_seconds: int = 20
     source_timeout_seconds: float = 20.0
     source_retries: int = 2
     source_backoff_seconds: float = 0.5

@@ -23,11 +23,13 @@ from app.routes.markets import router as markets_router
 from app.routes.movers import router as movers_router
 from app.routes.overview import router as overview_router
 from app.routes.portfolio import router as portfolio_router
+from app.routes.sniper import router as sniper_router
 from app.routes.source_status import router as source_status_router
 from app.routes.trends import router as trends_router
 from app.routes.user_features import router as user_features_router
 from app.workers.market_sync import sync_market
 from app.workers.scheduler import MarketScheduler
+from app.workers.sniper import run_sniper
 from app.workers.trade_sync import sync_trades
 
 
@@ -42,6 +44,7 @@ settings = get_settings()
 verify_secrets(settings)
 
 market_scheduler = MarketScheduler(sync_market, settings.market_sync_interval_seconds)
+sniper_scheduler = MarketScheduler(run_sniper, settings.sniper_interval_seconds)
 trade_scheduler = MarketScheduler(sync_trades, settings.trade_sync_interval_seconds)
 portfolio_scheduler = MarketScheduler(sync_portfolios, settings.portfolio_sync_interval_seconds)
 notification_scheduler = MarketScheduler(deliver_pending_alerts, 30)
@@ -51,6 +54,9 @@ notification_scheduler = MarketScheduler(deliver_pending_alerts, 30)
 async def lifespan(app: FastAPI):
     if settings.market_sync_enabled:
         await market_scheduler.start()
+    # Off by default: a twenty second loop is real load on the marketplaces.
+    if settings.sniper_enabled:
+        await sniper_scheduler.start()
     if settings.trade_sync_enabled and settings.tonnel_auth_data:
         await trade_scheduler.start()
     if settings.portfolio_sync_enabled:
@@ -59,6 +65,7 @@ async def lifespan(app: FastAPI):
         await notification_scheduler.start()
     yield
     await market_scheduler.stop()
+    await sniper_scheduler.stop()
     await trade_scheduler.stop()
     await portfolio_scheduler.stop()
     await notification_scheduler.stop()
@@ -85,6 +92,7 @@ for router in (
     movers_router,
     events_router,
     arbitrage_router,
+    sniper_router,
     analytics_router,
     trends_router,
     history_router,
