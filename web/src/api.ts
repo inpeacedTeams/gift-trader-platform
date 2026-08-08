@@ -1,4 +1,4 @@
-import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MarketResponse, MoversResponse } from "./types";
+import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MarketResponse, MoversResponse, SourceStatusList, WatchlistPage } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -27,7 +27,14 @@ export type AiAnswer = { answer: string; model: string; grounded_in?: string; re
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
 export const getMarkets = (collections: string[] = []) => request<MarketResponse>(`/markets/snapshots${collections.length ? `?${collections.map(c => `collection=${encodeURIComponent(c)}`).join("&")}` : ""}`); export const getArbitrage = (minimum = 0) => request<ArbitrageResponse>(`/arbitrage?min_profit_percent=${minimum}`); export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
-export const getWatchlist = () => request<{ items: { id: number; gift_id: number; created_at: string }[] }>("/watchlist"); export const addToWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "POST" }); export const removeFromWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "DELETE" });
+
+/** Saved gifts as full cards. Ids alone were never enough to render a row. */
+export const getWatchlist = () => request<WatchlistPage>("/watchlist");
+export const addToWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "POST" });
+export const removeFromWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "DELETE" });
+
+export const getSourceStatus = () => request<SourceStatusList>("/sources/status");
+
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
 export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules"); export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) }); export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) }); export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" }); export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events"); export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
