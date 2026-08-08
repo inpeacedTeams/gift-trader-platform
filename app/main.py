@@ -13,6 +13,7 @@ from app.routes.arbitrage import router as arbitrage_router
 from app.routes.auth import router as auth_router
 from app.routes.collections import router as collections_router
 from app.routes.deals import router as deals_router
+from app.routes.events import router as events_router
 from app.routes.gifts import router as gifts_router
 from app.routes.history import router as history_router
 from app.routes.jobs import router as jobs_router
@@ -71,6 +72,7 @@ for router in (
     collections_router,
     deals_router,
     movers_router,
+    events_router,
     arbitrage_router,
     analytics_router,
     trends_router,
