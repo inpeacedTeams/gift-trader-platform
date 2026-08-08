@@ -1,4 +1,4 @@
-import type { ArbitrageResponse, CollectionList, GiftDetail, GiftHistory, GiftPage, MarketResponse } from "./types";
+import type { ArbitrageResponse, CollectionCard, CollectionPage, GiftDetail, GiftHistory, GiftPage, MarketResponse } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -17,8 +17,15 @@ export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wal
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
 export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules"); export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) }); export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) }); export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" }); export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events"); export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
 
-export const getCollections = (search?: string) =>
-  request<CollectionList>(`/collections${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+export const getCollections = (options: { page?: number; pageSize?: number; search?: string } = {}) => {
+  const params = new URLSearchParams();
+  params.set("page", String(options.page ?? 1));
+  params.set("page_size", String(options.pageSize ?? 48));
+  if (options.search) params.set("search", options.search);
+  return request<CollectionPage>(`/collections?${params.toString()}`);
+};
+export const getCollection = (collectionId: number) => request<CollectionCard>(`/collections/${collectionId}`);
+
 export const getGifts = (options: { page?: number; pageSize?: number; search?: string; marketplace?: string; collectionId?: number } = {}) => {
   const params = new URLSearchParams();
   params.set("page", String(options.page ?? 1));

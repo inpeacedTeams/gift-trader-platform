@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { getGifts } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
@@ -15,6 +15,8 @@ const MARKET_OPTIONS = [
   { value: "portals", label: "Portals" },
   { value: "fragment", label: "Fragment" },
 ];
+
+export type CollectionFilter = { id: number; name: string };
 
 function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
   const change = formatPercent(gift.change_percent);
@@ -39,7 +41,15 @@ function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => vo
   );
 }
 
-export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
+export function Gifts({
+  onOpen,
+  collection,
+  onClearCollection,
+}: {
+  onOpen: (id: number) => void;
+  collection?: CollectionFilter | null;
+  onClearCollection?: () => void;
+}) {
   const [items, setItems] = useState<GiftCardType[]>([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -53,7 +63,12 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getGifts({ page, search: search || undefined, marketplace: marketplace || undefined });
+      const data = await getGifts({
+        page,
+        search: search || undefined,
+        marketplace: marketplace || undefined,
+        collectionId: collection?.id,
+      });
       setItems(data.items);
       setTotal(data.total);
       setHasNext(data.has_next);
@@ -66,8 +81,12 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
   };
 
   useEffect(() => {
+    setPage(1);
+  }, [collection?.id]);
+
+  useEffect(() => {
     void load();
-  }, [page, search, marketplace]);
+  }, [page, search, marketplace, collection?.id]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -79,13 +98,19 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
     <section className="page-section">
       <div className="section-head">
         <div>
-          <p className="eyebrow">PERSISTED CATALOG</p>
-          <h2>Gifts</h2>
+          <p className="eyebrow">{collection ? "COLLECTION" : "PERSISTED CATALOG"}</p>
+          <h2>{collection?.name ?? "Gifts"}</h2>
         </div>
         <span className="fresh">
           <i /> {formatCount(total)} tracked
         </span>
       </div>
+      {collection && onClearCollection && (
+        <button className="filter-chip" onClick={onClearCollection}>
+          {collection.name}
+          <X size={13} />
+        </button>
+      )}
       <form className="gift-search" onSubmit={submit}>
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name, model or identity" />
