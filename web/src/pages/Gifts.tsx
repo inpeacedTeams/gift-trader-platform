@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { FormEvent, MouseEvent, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Search, Star, X } from "lucide-react";
 import { getGiftModels, getGifts, type GiftSort } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
@@ -27,26 +27,50 @@ const SORT_OPTIONS = [
 
 export type CollectionFilter = { id: number; name: string };
 
-function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
+type CardProps = {
+  gift: GiftCardType;
+  onOpen: (id: number) => void;
+  saved: boolean;
+  canSave: boolean;
+  onToggleSave: (giftId: number, saved: boolean) => void;
+};
+
+function Card({ gift, onOpen, saved, canSave, onToggleSave }: CardProps) {
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
+  const save = (event: MouseEvent) => {
+    event.stopPropagation();
+    onToggleSave(gift.id, saved);
+  };
   return (
-    <button className="gift-card" onClick={() => onOpen(gift.id)}>
-      <GiftImage src={gift.image_url} alt={title} />
-      <div className="gift-card-body">
-        <strong>{title}</strong>
-        <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
-        <div className="gift-card-price">
-          <span>{formatTon(gift.floor_ton)}</span>
-          {change && <b className={rising ? "trend-up" : "trend-down"}>{change}</b>}
+    <div className="gift-card-shell">
+      <button className="gift-card" onClick={() => onOpen(gift.id)}>
+        <GiftImage src={gift.image_url} alt={title} />
+        <div className="gift-card-body">
+          <strong>{title}</strong>
+          <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
+          <div className="gift-card-price">
+            <span>{formatTon(gift.floor_ton)}</span>
+            {change && <b className={rising ? "trend-up" : "trend-down"}>{change}</b>}
+          </div>
+          <div className="gift-card-meta">
+            <span>median {formatTon(gift.median_ton)}</span>
+            <span>{formatCount(gift.listings_count)} listed</span>
+          </div>
         </div>
-        <div className="gift-card-meta">
-          <span>median {formatTon(gift.median_ton)}</span>
-          <span>{formatCount(gift.listings_count)} listed</span>
-        </div>
-      </div>
-    </button>
+      </button>
+      {canSave && (
+        <button
+          className={saved ? "card-star saved" : "card-star"}
+          aria-label={saved ? `Remove ${title} from watchlist` : `Save ${title} to watchlist`}
+          aria-pressed={saved}
+          onClick={save}
+        >
+          <Star size={14} fill={saved ? "currentColor" : "none"} />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -54,10 +78,16 @@ export function Gifts({
   onOpen,
   collection,
   onClearCollection,
+  watchlistIds = [],
+  authenticated = false,
+  onToggleWatchlist,
 }: {
   onOpen: (id: number) => void;
   collection?: CollectionFilter | null;
   onClearCollection?: () => void;
+  watchlistIds?: number[];
+  authenticated?: boolean;
+  onToggleWatchlist?: (giftId: number, saved: boolean) => void;
 }) {
   const [items, setItems] = useState<GiftCardType[]>([]);
   const [models, setModels] = useState<string[]>([]);
@@ -175,7 +205,14 @@ export function Gifts({
         <>
           <div className="gift-grid">
             {items.map(gift => (
-              <Card key={gift.id} gift={gift} onOpen={onOpen} />
+              <Card
+                key={gift.id}
+                gift={gift}
+                onOpen={onOpen}
+                saved={watchlistIds.includes(gift.id)}
+                canSave={authenticated && Boolean(onToggleWatchlist)}
+                onToggleSave={(giftId, saved) => onToggleWatchlist?.(giftId, saved)}
+              />
             ))}
           </div>
           <div className="pager">
