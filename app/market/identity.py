@@ -18,22 +18,26 @@ def normalize_address(value: str | None) -> str:
 
 
 def slugify(value: str | None) -> str:
-    """'Snoop Dogg' -> 'snoop-dogg'. Empty when there is nothing usable."""
-    return normalize_text(value).replace(" ", "-")
+    """'Snoop Dogg' -> 'snoop-dogg'. Stable key for a gift series."""
+    normalized = normalize_text(value)
+    return normalized.replace(" ", "-") if normalized else ""
 
 
-def canonical_collection_key(listing: Listing) -> str | None:
-    """Stable identity for the collection a listing belongs to.
+def collection_key(listing: Listing) -> tuple[str, str | None] | None:
+    """Identity of the series a gift belongs to.
 
-    On-chain address wins when a source provides one. Marketplaces that only
-    expose a gift name fall back to a slug so the same collection still groups
-    across sources.
+    Returns (key, display name). On-chain address wins because it is
+    authoritative; marketplaces without one fall back to a name slug so
+    'Snoop Dogg' from Tonnel and GetGems still land in the same bucket.
     """
-    address = normalize_address(listing.collection_id)
-    if address:
-        return address
-    slug = slugify(listing.collection_name or listing.name)
-    return f"name:{slug}" if slug else None
+    name = listing.collection_name or listing.name
+    address = listing.collection_id
+    if address and address.lower().startswith(("eq", "uq", "0:")):
+        return normalize_address(address), name
+    slug = slugify(name)
+    if not slug:
+        return None
+    return f"slug:{slug}", name
 
 
 def canonical_gift_key(listing: Listing) -> str:

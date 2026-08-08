@@ -1,7 +1,7 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Collection, Gift, Listing, PriceSnapshot
+from app.db.models import Gift, Listing, PriceSnapshot
 
 
 class GiftRepository:
@@ -19,13 +19,13 @@ class GiftRepository:
         active_only: bool = True,
     ):
         base = select(Gift).where(Gift.is_active.is_(True)) if active_only else select(Gift)
-        if collection_id is not None:
-            base = base.where(Gift.collection_id == collection_id)
         if search:
             pattern = f"%{search}%"
             base = base.where(
                 or_(Gift.name.ilike(pattern), Gift.model.ilike(pattern), Gift.canonical_id.ilike(pattern))
             )
+        if collection_id is not None:
+            base = base.where(Gift.collection_id == collection_id)
         if marketplace:
             base = (
                 base.join(Listing, Listing.gift_id == Gift.id)
@@ -41,11 +41,6 @@ class GiftRepository:
             ).all()
         )
         return gifts, int(total or 0)
-
-    async def collection_name(self, collection_id: int | None) -> str | None:
-        if collection_id is None:
-            return None
-        return await self.session.scalar(select(Collection.name).where(Collection.id == collection_id))
 
     async def detail(self, gift_id: int):
         gift = await self.session.get(Gift, gift_id)
