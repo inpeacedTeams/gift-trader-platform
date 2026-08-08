@@ -1,5 +1,5 @@
 from decimal import Decimal
-from sqlalchemy import Boolean, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -15,7 +15,7 @@ class Gift(Base):
     __tablename__ = "gifts"
     id: Mapped[int] = mapped_column(primary_key=True)
     canonical_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    collection_id: Mapped[int | None] = mapped_column(index=True)
+    collection_id: Mapped[int | None] = mapped_column(ForeignKey("collections.id"), index=True)
     gift_number: Mapped[int | None] = mapped_column()
     name: Mapped[str | None] = mapped_column(String(255))
     model: Mapped[str | None] = mapped_column(String(255))
