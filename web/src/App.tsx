@@ -84,7 +84,7 @@ export default function App() {
         const authenticated = await authenticateTelegram();
         const me = authenticated ?? (await getMe().catch(() => null));
         setUser(me);
-        if (me) setWatchlistIds((await getWatchlist()).items.map(item => item.gift_id));
+        if (me) setWatchlistIds((await getWatchlist()).items.map(item => item.id));
       } catch {
         setUser(null);
       }
@@ -152,10 +152,9 @@ export default function App() {
       <Opportunities items={opportunities} />
     ) : view === "watchlist" ? (
       <Watchlist
-        markets={markets?.markets ?? []}
-        watchlistIds={watchlistIds}
         authenticated={Boolean(user)}
-        onToggle={async (giftId, saved) => toggleWatchlist(giftId, saved)}
+        onOpen={openGift}
+        onToggle={(giftId, saved) => toggleWatchlist(giftId, saved)}
       />
     ) : view === "portfolio" ? (
       <Portfolio />
@@ -209,9 +208,11 @@ export default function App() {
             <button className="icon-btn" aria-label="Refresh live data" onClick={() => void refresh()}>
               <RefreshCw size={18} className={loading ? "spin" : ""} />
             </button>
-            <button className="avatar" aria-label={user ? "Sign out" : "Profile"} onClick={user ? signOut : undefined}>
-              IN
-            </button>
+            {user && (
+              <button className="avatar" aria-label="Sign out" onClick={signOut}>
+                {(user.username ?? user.first_name ?? "IN").slice(0, 2).toUpperCase()}
+              </button>
+            )}
           </div>
         </header>
         {error && view !== "gifts" && view !== "collections" && view !== "deals" && view !== "analyst" ? (
