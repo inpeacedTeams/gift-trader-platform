@@ -10,6 +10,7 @@ export type PortfolioOverview = { data_mode: string; total_assets: number; value
 export type PortfolioPoint = { observed_at: string; total_ton: string; ton_balance: string; nft_value_ton: string; asset_count: number };
 export type AlertRule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
 export type AlertEvent = { id: number; message: string; is_read: boolean; created_at: string };
+export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc";
 export const getMarkets = (collections: string[] = []) => request<MarketResponse>(`/markets/snapshots${collections.length ? `?${collections.map(c => `collection=${encodeURIComponent(c)}`).join("&")}` : ""}`); export const getArbitrage = (minimum = 0) => request<ArbitrageResponse>(`/arbitrage?min_profit_percent=${minimum}`); export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
 export const getWatchlist = () => request<{ items: { id: number; gift_id: number; created_at: string }[] }>("/watchlist"); export const addToWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "POST" }); export const removeFromWatchlist = (giftId: number) => request(`/watchlist/${giftId}`, { method: "DELETE" });
@@ -26,15 +27,19 @@ export const getCollections = (options: { page?: number; pageSize?: number; sear
 };
 export const getCollection = (collectionId: number) => request<CollectionCard>(`/collections/${collectionId}`);
 
-export const getGifts = (options: { page?: number; pageSize?: number; search?: string; marketplace?: string; collectionId?: number } = {}) => {
+export const getGifts = (options: { page?: number; pageSize?: number; search?: string; marketplace?: string; collectionId?: number; model?: string; sort?: GiftSort } = {}) => {
   const params = new URLSearchParams();
   params.set("page", String(options.page ?? 1));
   params.set("page_size", String(options.pageSize ?? 24));
+  params.set("sort", options.sort ?? "recent");
   if (options.search) params.set("search", options.search);
   if (options.marketplace) params.set("marketplace", options.marketplace);
   if (options.collectionId) params.set("collection_id", String(options.collectionId));
+  if (options.model) params.set("model", options.model);
   return request<GiftPage>(`/gifts?${params.toString()}`);
 };
+export const getGiftModels = (collectionId?: number) =>
+  request<string[]>(`/gifts/models${collectionId ? `?collection_id=${collectionId}` : ""}`);
 export const getGift = (giftId: number) => request<GiftDetail>(`/gifts/${giftId}`);
 export const getGiftHistory = (giftId: number, marketplace?: string) =>
   request<GiftHistory>(`/gifts/${giftId}/history${marketplace ? `?marketplace=${encodeURIComponent(marketplace)}` : ""}`);

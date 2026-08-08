@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
-import { getGifts } from "../api";
+import { getGiftModels, getGifts, type GiftSort } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
@@ -16,18 +16,27 @@ const MARKET_OPTIONS = [
   { value: "fragment", label: "Fragment" },
 ];
 
-export type CollectionScope = { id: number; name: string } | null;
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recently added" },
+  { value: "floor_asc", label: "Cheapest first" },
+  { value: "floor_desc", label: "Most expensive" },
+  { value: "depth", label: "Most listed" },
+  { value: "change_desc", label: "Top gainers 24h" },
+  { value: "change_asc", label: "Top losers 24h" },
+];
+
+export type CollectionFilter = { id: number; name: string };
 
 function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
-  const title = gift.model ?? gift.name ?? gift.canonical_id.slice(0, 18);
+  const title = gift.name ?? gift.canonical_id.slice(0, 18);
   return (
     <button className="gift-card" onClick={() => onOpen(gift.id)}>
       <GiftImage src={gift.image_url} alt={title} />
       <div className="gift-card-body">
         <strong>{title}</strong>
-        <small>{[gift.collection_name ?? gift.name, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
+        <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
         <div className="gift-card-price">
           <span>{formatTon(gift.floor_ton)}</span>
           {change && <b className={rising ? "trend-up" : "trend-down"}>{change}</b>}
@@ -41,11 +50,22 @@ function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => vo
   );
 }
 
-export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: number) => void; collection?: CollectionScope; onClearCollection?: () => void }) {
+export function Gifts({
+  onOpen,
+  collection,
+  onClearCollection,
+}: {
+  onOpen: (id: number) => void;
+  collection?: CollectionFilter | null;
+  onClearCollection?: () => void;
+}) {
   const [items, setItems] = useState<GiftCardType[]>([]);
+  const [models, setModels] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [marketplace, setMarketplace] = useState("");
+  const [model, setModel] = useState("");
+  const [sort, setSort] = useState<GiftSort>("recent");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -57,8 +77,10 @@ export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: 
     try {
       const data = await getGifts({
         page,
+        sort,
         search: search || undefined,
         marketplace: marketplace || undefined,
+        model: model || undefined,
         collectionId: collection?.id,
       });
       setItems(data.items);
@@ -74,17 +96,23 @@ export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: 
 
   useEffect(() => {
     setPage(1);
+    setModel("");
+    void getGiftModels(collection?.id)
+      .then(setModels)
+      .catch(() => setModels([]));
   }, [collection?.id]);
 
   useEffect(() => {
     void load();
-  }, [page, search, marketplace, collection?.id]);
+  }, [page, search, marketplace, model, sort, collection?.id]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
     setSearch(query.trim());
   };
+
+  const modelOptions = [{ value: "", label: "All models" }, ...models.map(item => ({ value: item, label: item }))];
 
   return (
     <section className="page-section">
@@ -98,13 +126,37 @@ export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: 
         </span>
       </div>
       {collection && onClearCollection && (
-        <button className="scope-chip" onClick={onClearCollection}>
-          {collection.name} <X size={13} />
+        <button className="filter-chip" onClick={onClearCollection}>
+          {collection.name}
+          <X size={13} />
         </button>
       )}
       <form className="gift-search" onSubmit={submit}>
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name, model or identity" />
+        <button className="outline-btn">Search</button>
+      </form>
+      <div className="catalog-filters">
+        <Select
+          label="Sort"
+          value={sort}
+          onChange={next => {
+            setPage(1);
+            setSort(next as GiftSort);
+          }}
+          options={SORT_OPTIONS}
+        />
+        {models.length > 0 && (
+          <Select
+            label="Model"
+            value={model}
+            onChange={next => {
+              setPage(1);
+              setModel(next);
+            }}
+            options={modelOptions}
+          />
+        )}
         <Select
           label="Marketplace"
           value={marketplace}
@@ -114,8 +166,7 @@ export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: 
           }}
           options={MARKET_OPTIONS}
         />
-        <button className="outline-btn">Search</button>
-      </form>
+      </div>
       {error ? (
         <ErrorState detail={error} retry={() => void load()} />
       ) : loading ? (
