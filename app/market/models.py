@@ -1,9 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
+
 from pydantic import BaseModel, Field, HttpUrl
 
-Marketplace = Literal["fragment", "portals", "getgems", "tonapi"]
+Marketplace = Literal["fragment", "portals", "getgems", "tonnel", "tonapi"]
+
 
 class Listing(BaseModel):
     marketplace: Marketplace
@@ -22,11 +24,13 @@ class Listing(BaseModel):
     observed_at: datetime
     source_url: HttpUrl
 
+
 class MarketSnapshot(BaseModel):
     marketplace: Marketplace
     observed_at: datetime
     listings: list[Listing]
     source_url: HttpUrl
+
 
 class SourceUnavailable(Exception):
     def __init__(self, marketplace: str, reason: str):

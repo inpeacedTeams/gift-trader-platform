@@ -11,6 +11,8 @@ DEFAULT_GIFT_COLLECTIONS = ",".join(
         "EQD9ikZq6xPgKjzmdBG0G0S80RvUJjbwgHrPZXDKc_wsE84w",
     ]
 )
+# Sources that need no credentials. Add "portals" or "fragment" once configured.
+DEFAULT_MARKET_SOURCES = "tonnel,getgems"
 
 
 class Settings(BaseSettings):
@@ -24,9 +26,11 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     tonapi_base_url: str = "https://tonapi.io"
     tonapi_token: str | None = None
+    tonnel_endpoint: str = "https://gifts2.tonnel.network/api/pageGifts"
     portals_endpoint: str = "https://portals-market.com/api/nfts/search"
     portals_auth_data: str | None = None
     getgems_collection_addresses: str = DEFAULT_GIFT_COLLECTIONS
+    market_sources: str = DEFAULT_MARKET_SOURCES
     source_timeout_seconds: float = 20.0
     source_retries: int = 2
     source_backoff_seconds: float = 0.5
@@ -38,17 +42,21 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
+    @staticmethod
+    def _split(value: str) -> list[str]:
+        return [item.strip() for item in value.split(",") if item.strip()]
+
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return self._split(self.cors_origins)
 
     @property
     def getgems_collection_list(self) -> list[str]:
-        return [
-            address.strip()
-            for address in self.getgems_collection_addresses.split(",")
-            if address.strip()
-        ]
+        return self._split(self.getgems_collection_addresses)
+
+    @property
+    def market_source_list(self) -> list[str]:
+        return [source.lower() for source in self._split(self.market_sources)]
 
 
 @lru_cache
