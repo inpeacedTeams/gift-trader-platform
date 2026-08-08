@@ -26,7 +26,7 @@ async def user_client(monkeypatch):
         async def override_session():
             yield session
         app.dependency_overrides[get_session] = override_session
-        async def fake_init_data(_: str):
+        def fake_init_data(_: str):
             return {"id": 9001, "username": "flow_user", "first_name": "Flow"}
         monkeypatch.setattr("app.routes.auth.validate_telegram_init_data", fake_init_data)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -40,28 +40,22 @@ async def test_authenticated_user_flow(user_client):
     auth = await client.post("/api/auth/telegram", json={"init_data": "test"})
     assert auth.status_code == 200
     headers = {"Authorization": f"Bearer {auth.json()['access_token']}"}
-
     assert (await client.get("/api/auth/me", headers=headers)).status_code == 200
     assert (await client.post("/api/watchlist/1", headers=headers)).status_code == 201
     assert (await client.get("/api/watchlist", headers=headers)).json()["items"][0]["gift_id"] == 1
-
     wallet = await client.post("/api/portfolio/wallets", headers=headers, json={"address": "EQflow-wallet-address", "label": "Main"})
     assert wallet.status_code == 201
     assert (await client.get("/api/portfolio/wallets", headers=headers)).json()["items"][0]["label"] == "Main"
-
     rule = await client.post("/api/alerts/rules", headers=headers, json={"rule_type": "portfolio_change_percent", "threshold": "5"})
     assert rule.status_code == 201
     rule_id = rule.json()["id"]
     assert (await client.patch(f"/api/alerts/rules/{rule_id}", headers=headers, json={"is_active": False})).json()["is_active"] is False
-
     event = AlertEvent(rule_id=rule_id, user_id=1, message="Portfolio changed", observed_value="5")
-    session.add(event)
-    await session.commit()
+    session.add(event); await session.commit()
     event_response = await client.get("/api/alerts/events", headers=headers)
     assert event_response.status_code == 200
     event_id = event_response.json()["items"][0]["id"]
     assert (await client.patch(f"/api/alerts/events/{event_id}/read", headers=headers)).json()["is_read"] is True
-
     assert (await client.delete("/api/watchlist/1", headers=headers)).status_code == 204
     assert (await client.delete(f"/api/portfolio/wallets/{wallet.json()['id']}", headers=headers)).status_code == 204
     assert (await client.delete(f"/api/alerts/rules/{rule_id}", headers=headers)).status_code == 204
