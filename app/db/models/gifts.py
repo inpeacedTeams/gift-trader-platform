@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from .market import Listing
 
 
 class Collection(Base):
@@ -33,6 +38,3 @@ class Gift(Base):
     __table_args__ = (
         Index("ix_gifts_collection_number", "collection_id", "gift_number"),
     )
-
-
-from .market import Listing
