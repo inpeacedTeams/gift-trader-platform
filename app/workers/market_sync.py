@@ -7,6 +7,7 @@ from app.db.session import SessionLocal
 from app.market.collector import collect
 from app.market.registry import build_parsers
 from app.notifications.alerts import GiftAlertEvaluator
+from app.notifications.undercut import UndercutEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class SyncReport:
     listings: int
     unavailable: int
     alerts: int = 0
+    undercuts: int = 0
 
 
 async def sync_market(settings: Settings | None = None) -> SyncReport:
@@ -38,8 +40,12 @@ async def sync_market(settings: Settings | None = None) -> SyncReport:
             await status_repo.record_failure(item["marketplace"], item["reason"])
         # Prices are final for this pass, so rules see the true cross market floor.
         alerts = await GiftAlertEvaluator(session).evaluate(touched)
+        # Sellers care about the same pass from the other side of the book.
+        undercuts = await UndercutEvaluator(session).evaluate()
         await session.commit()
-    report = SyncReport(len(result.snapshots), listings, len(result.unavailable), alerts)
+    report = SyncReport(
+        len(result.snapshots), listings, len(result.unavailable), alerts, undercuts
+    )
     logger.info(
         "market sync complete",
         extra={
@@ -47,6 +53,7 @@ async def sync_market(settings: Settings | None = None) -> SyncReport:
             "listings": report.listings,
             "unavailable": report.unavailable,
             "alerts": report.alerts,
+            "undercuts": report.undercuts,
         },
     )
     return report
