@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { getCollections } from "../api";
 import type { CollectionCard } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
@@ -7,20 +7,17 @@ import { GiftImage } from "../components/GiftImage";
 import { formatCount, formatTon } from "../format";
 import "../gifts.css";
 
+/** Every tracked gift series. Picking one opens the catalog filtered to it. */
 export function Collections({ onOpen }: { onOpen: (collection: CollectionCard) => void }) {
   const [items, setItems] = useState<CollectionCard[]>([]);
   const [query, setQuery] = useState("");
-  const [search, setSearch] = useState("");
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getCollections({ search: search || undefined });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems((await getCollections()).items);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Collections unavailable");
@@ -31,47 +28,42 @@ export function Collections({ onOpen }: { onOpen: (collection: CollectionCard) =
 
   useEffect(() => {
     void load();
-  }, [search]);
+  }, []);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    setSearch(query.trim());
-  };
+  const visible = items.filter(item => item.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
     <section className="page-section">
       <div className="section-head">
         <div>
-          <p className="eyebrow">BY COLLECTION</p>
+          <p className="eyebrow">GIFT SERIES</p>
           <h2>Collections</h2>
         </div>
         <span className="fresh">
-          <i /> {formatCount(total)} tracked
+          <i /> {formatCount(items.length)} tracked
         </span>
       </div>
-      <form className="gift-search" onSubmit={submit}>
+      <form className="gift-search" onSubmit={event => event.preventDefault()}>
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Find a collection, e.g. Snoop Dogg" />
-        <button className="outline-btn">Search</button>
       </form>
       {error ? (
         <ErrorState detail={error} retry={() => void load()} />
       ) : loading ? (
         <LoadingState />
-      ) : items.length ? (
+      ) : visible.length ? (
         <div className="collection-grid">
-          {items.map(collection => (
-            <button className="collection-card" key={collection.id} onClick={() => onOpen(collection)}>
-              <GiftImage src={collection.image_url} alt={collection.name ?? "Collection"} />
+          {visible.map(item => (
+            <button className="collection-card" key={item.id} onClick={() => onOpen(item)}>
+              <GiftImage src={item.image_url} alt={item.name} />
               <div className="collection-body">
-                <strong>{collection.name ?? collection.chain_address.slice(0, 16)}</strong>
-                <small>{formatCount(collection.gift_count)} models · {formatCount(collection.listings_count)} listed</small>
+                <strong>{item.name}</strong>
+                <small>{formatCount(item.gift_count)} models · {formatCount(item.listings_count)} listed</small>
                 <div className="collection-floor">
                   <span>floor</span>
-                  <b>{formatTon(collection.floor_ton)}</b>
+                  <b>{formatTon(item.floor_ton)}</b>
                 </div>
               </div>
-              <ChevronRight size={16} className="collection-caret" />
             </button>
           ))}
         </div>

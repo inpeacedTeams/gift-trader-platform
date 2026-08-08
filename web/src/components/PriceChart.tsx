@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState } from "react";
 import type { PricePoint } from "../types";
 import { formatPercent, formatTon } from "../format";
 
@@ -6,117 +6,100 @@ const WIDTH = 100;
 const HEIGHT = 100;
 const PADDING = 8;
 
-type Coord = { x: number; y: number };
+type Coord = { x: number; y: number; value: number; at: string };
 
-function toCoords(values: number[], min: number, range: number): Coord[] {
+function coords(values: number[], points: PricePoint[], min: number, range: number): Coord[] {
   return values.map((value, index) => ({
     x: values.length === 1 ? WIDTH / 2 : (index / (values.length - 1)) * WIDTH,
     y: HEIGHT - PADDING - ((value - min) / range) * (HEIGHT - PADDING * 2),
+    value,
+    at: points[index].observed_at,
   }));
-}
-
-function path(points: Coord[]): string {
-  return points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-}
-
-/** Split the line so each move is coloured by its own direction.
- *
- * Consecutive moves in the same direction share one polyline, which keeps the
- * node count near the number of trend flips instead of the number of points.
- */
-function segments(values: number[], coords: Coord[]) {
-  const result: { rising: boolean; points: Coord[] }[] = [];
-  for (let index = 1; index < values.length; index += 1) {
-    const rising = values[index] >= values[index - 1];
-    const last = result[result.length - 1];
-    if (last && last.rising === rising) {
-      last.points.push(coords[index]);
-    } else {
-      result.push({ rising, points: [coords[index - 1], coords[index]] });
-    }
-  }
-  return result;
 }
 
 function day(value: string): string {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Floor and median price over every persisted snapshot for one gift. */
+function moment(value: string): string {
+  return new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Floor and median over stored snapshots.
+ *
+ * Each floor segment is colored by its own direction, so a drop reads red and
+ * a recovery reads green even inside one trend.
+ */
 export function PriceChart({ points }: { points: PricePoint[] }) {
-  const usable = useMemo(
-    () => points.filter(point => point.floor_ton !== null && point.floor_ton !== undefined),
-    [points]
-  );
-  const chart = useMemo(() => {
-    if (usable.length < 2) return null;
-    const floors = usable.map(point => Number(point.floor_ton));
-    const medians = usable.map(point => Number(point.median_ton ?? point.floor_ton));
-    const all = [...floors, ...medians];
-    const min = Math.min(...all);
-    const max = Math.max(...all);
-    const range = max - min || 1;
-    const coords = toCoords(floors, min, range);
-    return {
-      floors,
-      min,
-      max,
-      medianPath: path(toCoords(medians, min, range)),
-      parts: segments(floors, coords),
-    };
-  }, [usable]);
-
-  if (!chart) {
-    return (
-      <div className="chart-empty">
-        Price history builds from stored snapshots. Come back after a few sync cycles.
-      </div>
-    );
+  const [hover, setHover] = useState<number | null>(null);
+  const usable = points.filter(point => point.floor_ton !== null && point.floor_ton !== undefined);
+  if (usable.length < 2) {
+    return <div className="chart-empty">Price history builds from stored snapshots. Come back after a few sync cycles.</div>;
   }
-
-  const first = chart.floors[0];
-  const last = chart.floors[chart.floors.length - 1];
+  const floors = usable.map(point => Number(point.floor_ton));
+  const medians = usable.map(point => Number(point.median_ton ?? point.floor_ton));
+  const all = [...floors, ...medians];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min || 1;
+  const floorCoords = coords(floors, usable, min, range);
+  const medianCoords = coords(medians, usable, min, range);
+  const first = floors[0];
+  const last = floors[floors.length - 1];
   const change = ((last - first) / first) * 100;
-  const rising = change >= 0;
+  const active = hover === null ? null : floorCoords[hover];
+
+  const onMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const ratio = (event.clientX - bounds.left) / bounds.width;
+    const index = Math.round(ratio * (floorCoords.length - 1));
+    setHover(Math.min(floorCoords.length - 1, Math.max(0, index)));
+  };
+
   return (
     <div className="price-chart">
       <div className="chart-head">
         <div>
-          <strong className={rising ? "trend-up" : "trend-down"}>{formatTon(last)}</strong>
-          <small>current floor</small>
+          <strong>{formatTon(active ? active.value : last)}</strong>
+          <small>{active ? moment(active.at) : "current floor"}</small>
         </div>
-        <span className={rising ? "trend-up" : "trend-down"}>{formatPercent(change)}</span>
+        <span className={change >= 0 ? "trend-up" : "trend-down"}>{formatPercent(change)}</span>
       </div>
-      <div className="chart-body">
-        <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`Floor price from ${formatTon(first)} to ${formatTon(last)}`}
-        >
-          <polyline className="chart-median" points={chart.medianPath} fill="none" strokeWidth="1.4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-          {chart.parts.map((part, index) => (
-            <polyline
-              key={index}
-              className={part.rising ? "chart-rise" : "chart-fall"}
-              points={path(part.points)}
-              fill="none"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
+      <div className="chart-body" onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`Floor price from ${formatTon(first)} to ${formatTon(last)}`}>
+          <polyline className="chart-median" points={medianCoords.map(point => `${point.x},${point.y}`).join(" ")} fill="none" strokeWidth="1.4" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          {floorCoords.slice(1).map((point, index) => {
+            const previous = floorCoords[index];
+            return (
+              <line
+                key={point.at}
+                className={point.value >= previous.value ? "seg-up" : "seg-down"}
+                x1={previous.x}
+                y1={previous.y}
+                x2={point.x}
+                y2={point.y}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          {active && (
+            <>
+              <line className="chart-crosshair" x1={active.x} y1="0" x2={active.x} y2={HEIGHT} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <circle className="chart-dot" cx={active.x} cy={active.y} r="2.4" vectorEffect="non-scaling-stroke" />
+            </>
+          )}
         </svg>
         <div className="chart-axis-y">
-          <span>{formatTon(chart.max, { suffix: false })}</span>
-          <span>{formatTon(chart.min, { suffix: false })}</span>
+          <span>{formatTon(max, { suffix: false })}</span>
+          <span>{formatTon(min, { suffix: false })}</span>
         </div>
       </div>
       <div className="chart-axis-x">
         <span>{day(usable[0].observed_at)}</span>
         <span className="chart-legend">
-          <i className="dot-rise" /> up <i className="dot-fall" /> down <i className="dot-median" /> median
+          <i className="dot-up" /> up <i className="dot-down" /> down <i className="dot-median" /> median
         </span>
         <span>{day(usable[usable.length - 1].observed_at)}</span>
       </div>

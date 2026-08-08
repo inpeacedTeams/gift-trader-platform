@@ -7,15 +7,15 @@ export type ArbitrageResponse = { data_mode: "live-only"; opportunities: Opportu
 
 export type CollectionCard = {
   id: number;
-  name?: string | null;
+  name: string;
   slug?: string | null;
-  chain_address: string;
+  chain_address?: string | null;
   gift_count: number;
   listings_count: number;
   floor_ton?: string | null;
   image_url?: string | null;
 };
-export type CollectionPage = { data_mode: string; items: CollectionCard[]; page: number; page_size: number; total: number; has_next: boolean };
+export type CollectionList = { data_mode: string; items: CollectionCard[] };
 
 export type GiftCard = {
   id: number;

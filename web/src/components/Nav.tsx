@@ -1,4 +1,4 @@
-import { Activity, Bell, Gem, LayoutDashboard, Layers, Settings2, Star, Wallet } from "lucide-react";
+import { Activity, Bell, Gem, Layers, LayoutDashboard, Settings2, Star, Wallet } from "lucide-react";
 
 export type View = "overview" | "collections" | "gifts" | "opportunities" | "watchlist" | "portfolio" | "alerts" | "settings";
 
