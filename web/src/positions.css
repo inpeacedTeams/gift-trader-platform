@@ -1,0 +1,145 @@
+.pos-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pos-tile {
+  padding: 14px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.pos-tile span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.pos-tile strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 20px;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-tile small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.pos-tile strong.profit {
+  color: #4ade80;
+}
+
+.pos-tile strong.loss {
+  color: #f87171;
+}
+
+.pos-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(90px, 1fr)) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.pos-row:last-child {
+  border-bottom: 0;
+}
+
+.pos-row.closed {
+  opacity: 0.72;
+}
+
+.pos-row b {
+  display: block;
+  font-size: 14px;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-row small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.pos-row b.profit {
+  color: #4ade80;
+}
+
+.pos-row b.loss {
+  color: #f87171;
+}
+
+.pos-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pos-title button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-title button:hover {
+  color: #38bdf8;
+}
+
+.pos-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pos-actions input {
+  width: 96px;
+  padding: 7px 9px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 9px;
+  background: rgba(2, 6, 23, 0.6);
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.pos-actions input:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.pos-ghost {
+  padding: 6px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 9px;
+  background: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pos-ghost:hover {
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.pos-ghost.danger:hover {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
+}

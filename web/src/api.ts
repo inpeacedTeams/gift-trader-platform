@@ -95,6 +95,46 @@ export type FeeSchedule = {
   marketplaces: MarketplaceFee[];
 };
 
+/** The user's own book. Prices are live, the cost basis is what they typed. */
+export type PositionCard = {
+  id: number;
+  gift_id: number;
+  name?: string | null;
+  model?: string | null;
+  image_url?: string | null;
+  rarity_tier?: string | null;
+  gift_number?: number | null;
+  collection_name?: string | null;
+  marketplace?: string | null;
+  buy_price_ton: string;
+  quantity: number;
+  opened_at: string;
+  closed_at?: string | null;
+  sell_price_ton?: string | null;
+  sell_marketplace?: string | null;
+  note?: string | null;
+  floor_ton?: string | null;
+  median_ton?: string | null;
+  exit_venue?: string | null;
+  exit_net_ton?: string | null;
+  cost_basis_ton: string;
+  profit_ton?: string | null;
+  roi_percent?: string | null;
+  is_open: boolean;
+};
+export type PositionSummary = {
+  open_count: number;
+  closed_count: number;
+  unpriced_count: number;
+  invested_ton: string;
+  market_value_ton: string;
+  unrealized_ton: string;
+  realized_ton: string;
+  wins: number;
+  win_rate_percent?: string | null;
+};
+export type PositionList = { data_mode: string; items: PositionCard[]; summary: PositionSummary };
+
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
 export const getArbitrage = (minPercent = 0, limit = 50) =>
@@ -102,6 +142,23 @@ export const getArbitrage = (minPercent = 0, limit = 50) =>
 export const getFees = () => request<FeeSchedule>("/fees");
 export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
+
+/** Positions: recorded buys, priced against the live floor. */
+export const getPositions = (includeClosed = true) =>
+  request<PositionList>(`/positions?include_closed=${includeClosed}`);
+export const openPosition = (payload: {
+  gift_id: number;
+  buy_price_ton: string;
+  marketplace?: string;
+  quantity?: number;
+  note?: string;
+}) => request<PositionCard>("/positions", { method: "POST", body: JSON.stringify(payload) });
+export const closePosition = (positionId: number, payload: { sell_price_ton: string; sell_marketplace?: string }) =>
+  request<PositionCard>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify(payload) });
+/** Undo a mistyped exit: the lot goes back on the open book. */
+export const reopenPosition = (positionId: number) =>
+  request<PositionCard>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify({ sell_price_ton: null }) });
+export const deletePosition = (positionId: number) => request(`/positions/${positionId}`, { method: "DELETE" });
 
 /** Saved gifts as full cards. Ids alone were never enough to render a row. */
 export const getWatchlist = () => request<WatchlistPage>("/watchlist");
