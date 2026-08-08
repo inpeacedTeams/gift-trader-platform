@@ -5,8 +5,10 @@ from .market_snapshot import MarketSnapshotRepository
 from .movers import MoversRepository
 from .positions import PositionRepository
 from .price_history import PriceHistoryRepository
+from .selling import SellingRepository
 from .source_status import SourceStatusRepository
 from .trades import TradeRepository
+from .volatility import VolatilityRepository
 from .watchlist import WatchlistRepository
 
 __all__ = [
@@ -17,7 +19,9 @@ __all__ = [
     "MoversRepository",
     "PositionRepository",
     "PriceHistoryRepository",
+    "SellingRepository",
     "SourceStatusRepository",
     "TradeRepository",
+    "VolatilityRepository",
     "WatchlistRepository",
 ]
