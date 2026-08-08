@@ -3,6 +3,7 @@ import { ArrowLeft, ExternalLink, Layers, Tag } from "lucide-react";
 import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
+import { FlipCalc } from "../components/FlipCalc";
 import { GiftImage } from "../components/GiftImage";
 import { Liquidity } from "../components/Liquidity";
 import { PriceChart } from "../components/PriceChart";
@@ -94,6 +95,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onO
       <TraitGrid gift={gift} />
       <Verdict giftId={gift.id} authenticated={authenticated} enabled={aiEnabled} />
       <Liquidity giftId={gift.id} />
+      <FlipCalc floorTon={gift.floor_ton} medianTon={gift.median_ton} venues={gift.sources} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">
