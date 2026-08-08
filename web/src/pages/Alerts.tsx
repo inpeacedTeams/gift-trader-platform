@@ -1,12 +1,19 @@
 import { FormEvent, useEffect, useState } from "react";
 import { BellRing, Check, Plus, SlidersHorizontal, Trash2, LoaderCircle, Pause, Play } from "lucide-react";
-import { createAlertRule, deleteAlertRule, getAlertEvents, getAlertRules, markAlertRead, updateAlertRule } from "../api";
+import {
+  createAlertRule,
+  deleteAlertRule,
+  getAlertEvents,
+  getAlertRules,
+  markAlertRead,
+  updateAlertRule,
+  type AlertEvent,
+  type AlertRule,
+} from "../api";
 import { EmptyState } from "../components/State";
+import { GiftImage } from "../components/GiftImage";
 import { Select, type SelectGroup } from "../components/Select";
 import { formatCount } from "../format";
-
-type Rule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
-type Event = { id: number; message: string; is_read: boolean; created_at: string };
 
 const RULE_GROUPS: SelectGroup[] = [
   {
@@ -38,9 +45,18 @@ const RULE_LABELS: Record<string, string> = {
   portfolio_change_percent: "Portfolio change above",
 };
 
-export function Alerts({ available }: { available: boolean }) {
-  const [rules, setRules] = useState<Rule[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+/** What a rule watches, in words rather than an id. */
+function target(rule: AlertRule): string {
+  if (!rule.gift_id) {
+    return rule.rule_type.startsWith("portfolio_") ? "Весь портфель" : "Все подарки";
+  }
+  const name = rule.gift_name ?? `Gift #${rule.gift_id}`;
+  return rule.gift_model ? `${name} · ${rule.gift_model}` : name;
+}
+
+export function Alerts({ available, onOpenGift }: { available: boolean; onOpenGift?: (giftId: number) => void }) {
+  const [rules, setRules] = useState<AlertRule[]>([]);
+  const [events, setEvents] = useState<AlertEvent[]>([]);
   const [ruleType, setRuleType] = useState("price_below");
   const [threshold, setThreshold] = useState("10");
   const [giftId, setGiftId] = useState("");
@@ -70,11 +86,11 @@ export function Alerts({ available }: { available: boolean }) {
     event.preventDefault();
     setSaving(true);
     try {
-      const created = (await createAlertRule({
+      const created = await createAlertRule({
         rule_type: ruleType,
         threshold,
         ...(!isPortfolioRule && giftId.trim() ? { gift_id: Number(giftId) } : {}),
-      })) as Rule;
+      });
       setRules(items => [created, ...items]);
       setThreshold("10");
       setGiftId("");
@@ -85,9 +101,9 @@ export function Alerts({ available }: { available: boolean }) {
       setSaving(false);
     }
   };
-  const toggle = async (rule: Rule) => {
+  const toggle = async (rule: AlertRule) => {
     try {
-      const result = (await updateAlertRule(rule.id, !rule.is_active)) as { is_active: boolean };
+      const result = await updateAlertRule(rule.id, !rule.is_active);
       setRules(items => items.map(item => (item.id === rule.id ? { ...item, is_active: result.is_active } : item)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update alert");
@@ -101,14 +117,16 @@ export function Alerts({ available }: { available: boolean }) {
       setError(e instanceof Error ? e.message : "Could not delete alert");
     }
   };
-  const read = async (event: Event) => {
-    if (event.is_read) return;
-    try {
-      await markAlertRead(event.id);
-      setEvents(items => items.map(item => (item.id === event.id ? { ...item, is_read: true } : item)));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not mark event read");
+  const read = async (event: AlertEvent) => {
+    if (!event.is_read) {
+      try {
+        await markAlertRead(event.id);
+        setEvents(items => items.map(item => (item.id === event.id ? { ...item, is_read: true } : item)));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not mark event read");
+      }
     }
+    if (event.gift_id && onOpenGift) onOpenGift(event.gift_id);
   };
 
   return (
@@ -119,14 +137,15 @@ export function Alerts({ available }: { available: boolean }) {
           <h2>Alerts</h2>
         </div>
         <span className="fresh">
-          {formatCount(rules.filter(rule => rule.is_active).length)} active · {formatCount(events.filter(event => !event.is_read).length)} unread
+          {formatCount(rules.filter(rule => rule.is_active).length)} active ·{" "}
+          {formatCount(events.filter(event => !event.is_read).length)} unread
         </span>
       </div>
       <div className="alert-setup">
         <BellRing size={24} />
         <div>
           <h3>Turn market movement into a signal</h3>
-          <p>Portfolio rules compare each five-minute valuation with the previous snapshot.</p>
+          <p>Быстрее всего правило создаётся кнопкой на странице подарка.</p>
         </div>
         <SlidersHorizontal size={20} />
       </div>
@@ -157,16 +176,21 @@ export function Alerts({ available }: { available: boolean }) {
         <div className="alert-list stagger">
           {rules.map(rule => (
             <div className={`alert-row ${rule.is_active ? "" : "paused"}`} key={rule.id}>
-              <button className="status-toggle" aria-label={rule.is_active ? "Pause alert" : "Resume alert"} onClick={() => void toggle(rule)}>
+              <button
+                className="status-toggle"
+                aria-label={rule.is_active ? "Pause alert" : "Resume alert"}
+                onClick={() => void toggle(rule)}
+              >
                 {rule.is_active ? <Pause size={11} /> : <Play size={11} />}
               </button>
+              {rule.gift_id ? (
+                <GiftImage src={rule.gift_image_url} alt={rule.gift_name ?? "gift"} className="alert-thumb" />
+              ) : null}
               <div>
-                <strong>
-                  {RULE_LABELS[rule.rule_type] ?? rule.rule_type} {rule.threshold}
-                  {rule.rule_type.includes("percent") ? "%" : " TON"}
-                </strong>
+                <strong>{target(rule)}</strong>
                 <small>
-                  {rule.gift_id ? `Gift #${rule.gift_id}` : "All portfolio / verified gifts"} · {rule.is_active ? "active" : "paused"}
+                  {RULE_LABELS[rule.rule_type] ?? rule.rule_type} {rule.threshold}
+                  {rule.rule_type.includes("percent") ? "%" : " TON"} · {rule.is_active ? "active" : "paused"}
                 </small>
               </div>
               <button className="icon-btn" aria-label="Delete alert" onClick={() => void remove(rule.id)}>
@@ -176,7 +200,10 @@ export function Alerts({ available }: { available: boolean }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="No alerts configured" detail={available ? "Create a rule to watch the live market." : "Sign in through Telegram to create a private alert."} />
+        <EmptyState
+          title="No alerts configured"
+          detail={available ? "Create a rule to watch the live market." : "Sign in through Telegram to create a private alert."}
+        />
       )}
       <div className="events-section">
         <div className="section-head">
@@ -189,10 +216,15 @@ export function Alerts({ available }: { available: boolean }) {
           events.map(item => (
             <button className={`event-row ${item.is_read ? "read" : "unread"}`} key={item.id} onClick={() => void read(item)}>
               <span className={item.is_read ? "event-dot read" : "event-dot"} />
+              {item.gift_id ? (
+                <GiftImage src={item.gift_image_url} alt={item.gift_name ?? "gift"} className="alert-thumb" />
+              ) : null}
               <div>
-                <strong>{item.message}</strong>
+                <strong>{item.gift_name ?? "Портфель"}</strong>
+                <small>{item.message}</small>
                 <small>
-                  {new Date(item.created_at).toLocaleString()} {item.is_read ? "· read" : "· click to mark read"}
+                  {new Date(item.created_at).toLocaleString()}
+                  {item.gift_id ? " · открыть подарок" : item.is_read ? " · прочитано" : " · клик, чтобы отметить"}
                 </small>
               </div>
               {item.is_read && <Check size={14} />}

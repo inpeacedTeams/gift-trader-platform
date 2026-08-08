@@ -1,0 +1,27 @@
+/* Alert rows carry a gift thumbnail, so the identity is visible at a glance. */
+.alert-thumb {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+}
+
+.alert-row {
+  gap: 12px;
+}
+
+.event-row {
+  align-items: center;
+}
+
+.event-row strong {
+  font-size: 12px;
+}
+
+.event-row small {
+  display: block;
+  margin-top: 3px;
+  color: #8793a3;
+  font-size: 10px;
+  white-space: pre-wrap;
+}
