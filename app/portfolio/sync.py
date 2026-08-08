@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from sqlalchemy import delete, select
-from app.db.models import AlertEvent, AlertRule, Gift, PortfolioHolding, PortfolioValuation, PortfolioWallet, PriceSnapshot
+from app.db.models import AlertEvent, AlertRule, PortfolioHolding, PortfolioValuation, PortfolioWallet
 from app.db.session import SessionLocal
 from app.market.models import SourceUnavailable
+from app.notifications.portfolio_alerts import portfolio_message
 from app.portfolio.tonapi import TonapiPortfolioClient
 from app.portfolio.valuation import latest_floor, resolve_gift
 from app.portfolio.resolver_telemetry import record_attempt
@@ -66,5 +67,5 @@ async def _evaluate_alerts(session, user_id, current: PortfolioValuation) -> int
         if not triggered: continue
         recent = await session.scalar(select(AlertEvent).where(AlertEvent.rule_id == rule.id, AlertEvent.created_at >= datetime.now(timezone.utc) - timedelta(minutes=5)).limit(1))
         if recent is not None: continue
-        session.add(AlertEvent(rule_id=rule.id, user_id=user_id, message=f"Portfolio {rule.rule_type.replace('_', ' ')}: {current.total_ton} TON ({change:+.2f}%)", observed_value=current.total_ton)); count += 1
+        session.add(AlertEvent(rule_id=rule.id, user_id=user_id, message=portfolio_message(rule.rule_type, current.total_ton, change, rule.threshold), observed_value=current.total_ton)); count += 1
     return count
