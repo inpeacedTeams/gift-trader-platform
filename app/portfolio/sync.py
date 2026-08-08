@@ -53,7 +53,13 @@ async def _record_user_valuation(session, user_id, wallets, client):
 async def _evaluate_alerts(session, user_id, current: PortfolioValuation) -> int:
     previous = await session.scalar(select(PortfolioValuation).where(PortfolioValuation.user_id == user_id, PortfolioValuation.id < current.id).order_by(PortfolioValuation.id.desc()).limit(1))
     if previous is None: return 0
-    rules = list((await session.scalars(select(AlertRule).where(AlertRule.user_id == user_id, AlertRule.is_active.is_(True), AlertRule.gift_id.is_(None), AlertRule.rule_type.in_(["portfolio_value_above", "portfolio_value_below", "portfolio_change_percent"]))).all())
+    rules_query = select(AlertRule).where(
+        AlertRule.user_id == user_id,
+        AlertRule.is_active.is_(True),
+        AlertRule.gift_id.is_(None),
+        AlertRule.rule_type.in_(["portfolio_value_above", "portfolio_value_below", "portfolio_change_percent"]),
+    )
+    rules = list((await session.scalars(rules_query)).all())
     change = ((current.total_ton - previous.total_ton) / previous.total_ton * Decimal("100")) if previous.total_ton else Decimal("0"); count = 0
     for rule in rules:
         triggered = (rule.rule_type == "portfolio_value_above" and current.total_ton >= rule.threshold) or (rule.rule_type == "portfolio_value_below" and current.total_ton <= rule.threshold) or (rule.rule_type == "portfolio_change_percent" and abs(change) >= rule.threshold)
