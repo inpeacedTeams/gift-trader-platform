@@ -58,6 +58,7 @@ function Card({ gift, onOpen, saved, canSave, onToggleSave }: CardProps) {
             <span>median {formatTon(gift.median_ton)}</span>
             <span>{formatCount(gift.listings_count)} listed</span>
           </div>
+          {gift.best_marketplace && <span className="venue-badge">cheapest on {gift.best_marketplace}</span>}
         </div>
       </button>
       {canSave && (
@@ -96,6 +97,9 @@ export function Gifts({
   const [marketplace, setMarketplace] = useState("");
   const [model, setModel] = useState("");
   const [sort, setSort] = useState<GiftSort>("recent");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [priceFilter, setPriceFilter] = useState({ min: "", max: "" });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -111,6 +115,8 @@ export function Gifts({
         search: search || undefined,
         marketplace: marketplace || undefined,
         model: model || undefined,
+        minPrice: priceFilter.min || undefined,
+        maxPrice: priceFilter.max || undefined,
         collectionId: collection?.id,
       });
       setItems(data.items);
@@ -134,12 +140,13 @@ export function Gifts({
 
   useEffect(() => {
     void load();
-  }, [page, search, marketplace, model, sort, collection?.id]);
+  }, [page, search, marketplace, model, sort, priceFilter, collection?.id]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
     setSearch(query.trim());
+    setPriceFilter({ min: minPrice.trim(), max: maxPrice.trim() });
   };
 
   const modelOptions = [{ value: "", label: "All models" }, ...models.map(item => ({ value: item, label: item }))];
@@ -164,7 +171,28 @@ export function Gifts({
       <form className="gift-search" onSubmit={submit}>
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name, model or identity" />
-        <button className="outline-btn">Search</button>
+        <div className="price-range">
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={minPrice}
+            onChange={event => setMinPrice(event.target.value)}
+            placeholder="min"
+            aria-label="Minimum price in TON"
+          />
+          <span>–</span>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={maxPrice}
+            onChange={event => setMaxPrice(event.target.value)}
+            placeholder="max"
+            aria-label="Maximum price in TON"
+          />
+        </div>
+        <button className="outline-btn">Apply</button>
       </form>
       <div className="catalog-filters">
         <Select

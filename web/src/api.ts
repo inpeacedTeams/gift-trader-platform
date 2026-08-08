@@ -27,7 +27,19 @@ export const getCollections = (options: { page?: number; pageSize?: number; sear
 };
 export const getCollection = (collectionId: number) => request<CollectionCard>(`/collections/${collectionId}`);
 
-export const getGifts = (options: { page?: number; pageSize?: number; search?: string; marketplace?: string; collectionId?: number; model?: string; sort?: GiftSort } = {}) => {
+export const getGifts = (
+  options: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    marketplace?: string;
+    collectionId?: number;
+    model?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    sort?: GiftSort;
+  } = {}
+) => {
   const params = new URLSearchParams();
   params.set("page", String(options.page ?? 1));
   params.set("page_size", String(options.pageSize ?? 24));
@@ -36,6 +48,8 @@ export const getGifts = (options: { page?: number; pageSize?: number; search?: s
   if (options.marketplace) params.set("marketplace", options.marketplace);
   if (options.collectionId) params.set("collection_id", String(options.collectionId));
   if (options.model) params.set("model", options.model);
+  if (options.minPrice) params.set("min_price", options.minPrice);
+  if (options.maxPrice) params.set("max_price", options.maxPrice);
   return request<GiftPage>(`/gifts?${params.toString()}`);
 };
 export const getGiftModels = (collectionId?: number) =>

@@ -10,6 +10,69 @@
   min-width: 170px;
 }
 
+.price-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  color: #6f7d8e;
+  font-size: 12px;
+}
+
+.price-range input {
+  width: 68px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-range input::-webkit-outer-spin-button,
+.price-range input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.venue-badge {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(125, 167, 255, 0.12);
+  color: #9cbaff;
+  font: 500 10px "DM Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
+.chart-ranges {
+  display: inline-flex;
+  align-self: flex-end;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chart-ranges button {
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #8793a3;
+  font: 500 11px "DM Mono", monospace;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.chart-ranges button.active {
+  background: #1a2331;
+  color: #fff;
+}
+
 .gift-card-shell {
   position: relative;
   display: flex;
@@ -59,10 +122,15 @@
   .catalog-filters .ui-select {
     min-width: 100%;
   }
+  .price-range {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-star {
+  .card-star,
+  .chart-ranges button {
     transition: none;
   }
 }
