@@ -48,3 +48,20 @@ export type GiftListing = {
 export type GiftDetail = GiftCard & { listings: GiftListing[]; sources: string[] };
 export type PricePoint = { observed_at: string; marketplace: string; floor_ton?: string | null; median_ton?: string | null; volume_ton?: string | null; listings_count: number };
 export type GiftHistory = { data_mode: string; gift_id: number; points: PricePoint[] };
+
+export type Deal = {
+  gift_id: number;
+  name?: string | null;
+  model?: string | null;
+  gift_number?: number | null;
+  image_url?: string | null;
+  collection_id?: number | null;
+  collection_name?: string | null;
+  marketplace: string;
+  price_ton: string;
+  median_ton: string;
+  peer_count: number;
+  discount_percent: string;
+  url?: string | null;
+};
+export type DealList = { data_mode: string; items: Deal[] };

@@ -17,6 +17,7 @@ import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
 import { Collections } from "./pages/Collections";
+import { Deals } from "./pages/Deals";
 import { Gifts, type CollectionFilter } from "./pages/Gifts";
 import { GiftPage } from "./pages/GiftPage";
 import { Opportunities } from "./pages/Opportunities";
@@ -26,7 +27,7 @@ import { Alerts } from "./pages/Alerts";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
-const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
+const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -108,10 +109,16 @@ export default function App() {
     setSelectedGift(null);
     setView("gifts");
   };
+  const openGift = (giftId: number) => {
+    setSelectedGift(giftId);
+    setView("gifts");
+  };
   const opportunities = arbitrage?.opportunities ?? [];
   const page =
     view === "collections" ? (
       <Collections onOpen={openCollection} />
+    ) : view === "deals" ? (
+      <Deals onOpen={openGift} />
     ) : view === "gifts" ? (
       selectedGift === null ? (
         <Gifts
@@ -185,7 +192,11 @@ export default function App() {
             </button>
           </div>
         </header>
-        {error && view !== "gifts" && view !== "collections" ? <ErrorState detail={error} retry={() => void refresh()} /> : page}
+        {error && view !== "gifts" && view !== "collections" && view !== "deals" ? (
+          <ErrorState detail={error} retry={() => void refresh()} />
+        ) : (
+          page
+        )}
       </main>
     </div>
   );
