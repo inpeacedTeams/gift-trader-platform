@@ -4,10 +4,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Gift
-from app.db.repositories import GiftRepository, PriceHistoryRepository
+from app.db.repositories import GiftRepository, PriceHistoryRepository, TradeRepository
 from app.db.repositories.gifts import SORTS
 from app.db.session import get_session
-from app.schemas.frontend import GiftCard, GiftDetail, GiftHistory, GiftListing, GiftPage, PricePoint
+from app.schemas.frontend import (
+    GiftCard,
+    GiftDetail,
+    GiftHistory,
+    GiftListing,
+    GiftPage,
+    GiftTrades,
+    PricePoint,
+    TradeRecord,
+    TradeStats,
+)
 
 router = APIRouter(prefix="/gifts", tags=["gifts"])
 
@@ -101,6 +111,26 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         deal_percent=await repository.deal_percent(gift, floor),
         listings=[GiftListing.model_validate(item) for item in listings],
         sources=sorted({item.marketplace for item in active}),
+    )
+
+
+@router.get("/{gift_id}/trades", response_model=GiftTrades)
+async def gift_trades(
+    gift_id: int,
+    limit: int = Query(default=20, ge=1, le=100),
+    window_days: int = Query(default=30, ge=1, le=365),
+    session: AsyncSession = Depends(get_session),
+):
+    """Prices the market actually paid, as opposed to asking prices."""
+    if await session.get(Gift, gift_id) is None:
+        raise HTTPException(status_code=404, detail="Gift not found")
+    repository = TradeRepository(session)
+    rows = await repository.recent(gift_id, limit=limit)
+    stats = await repository.stats(gift_id, days=window_days)
+    return GiftTrades(
+        gift_id=gift_id,
+        stats=TradeStats(**stats),
+        items=[TradeRecord.model_validate(row) for row in rows],
     )
 
 

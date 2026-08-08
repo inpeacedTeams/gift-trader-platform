@@ -23,6 +23,7 @@ from app.routes.trends import router as trends_router
 from app.routes.user_features import router as user_features_router
 from app.workers.market_sync import sync_market
 from app.workers.scheduler import MarketScheduler
+from app.workers.trade_sync import sync_trades
 
 
 class ServiceStatus(BaseModel):
@@ -33,6 +34,7 @@ class ServiceStatus(BaseModel):
 
 settings = get_settings()
 market_scheduler = MarketScheduler(sync_market, settings.market_sync_interval_seconds)
+trade_scheduler = MarketScheduler(sync_trades, settings.trade_sync_interval_seconds)
 portfolio_scheduler = MarketScheduler(sync_portfolios, settings.portfolio_sync_interval_seconds)
 notification_scheduler = MarketScheduler(deliver_pending_alerts, 30)
 
@@ -41,12 +43,15 @@ notification_scheduler = MarketScheduler(deliver_pending_alerts, 30)
 async def lifespan(app: FastAPI):
     if settings.market_sync_enabled:
         await market_scheduler.start()
+    if settings.trade_sync_enabled and settings.tonnel_auth_data:
+        await trade_scheduler.start()
     if settings.portfolio_sync_enabled:
         await portfolio_scheduler.start()
     if settings.telegram_bot_token:
         await notification_scheduler.start()
     yield
     await market_scheduler.stop()
+    await trade_scheduler.stop()
     await portfolio_scheduler.stop()
     await notification_scheduler.stop()
 
