@@ -24,6 +24,15 @@ def _ton(value: Decimal | None) -> str:
     return f"{number:f} TON"
 
 
+def _trait(name: str | None, percent: Decimal | None) -> str:
+    """Name plus its published scarcity, or an honest admission of ignorance."""
+    if not name:
+        return "unresolved"
+    if percent is None:
+        return f"{name} (rarity unknown)"
+    return f"{name} ({Decimal(percent).normalize():f}% of the collection)"
+
+
 async def market_context(session: AsyncSession, *, limit: int = MAX_GIFTS) -> str:
     """A compact snapshot of the tracked market.
 
@@ -60,6 +69,7 @@ async def market_context(session: AsyncSession, *, limit: int = MAX_GIFTS) -> st
                 Gift.id,
                 Gift.name,
                 Gift.model,
+                Gift.rarity_tier,
                 Collection.name.label("collection"),
                 func.min(Listing.price_ton).label("floor"),
                 func.percentile_cont(0.5)
@@ -76,12 +86,12 @@ async def market_context(session: AsyncSession, *, limit: int = MAX_GIFTS) -> st
     ).all()
     if gifts:
         lines.append("")
-        lines.append("GIFTS (id | collection | model | floor | median | listings):")
+        lines.append("GIFTS (id | collection | model | rarity | floor | median | listings):")
         for row in gifts:
             lines.append(
                 f"- #{row.id} | {row.collection or row.name or 'unknown'} | "
-                f"{row.model or 'unknown model'} | {_ton(row.floor)} | "
-                f"{_ton(row.median)} | {row.depth}"
+                f"{row.model or 'unknown model'} | {row.rarity_tier or 'rarity unknown'} | "
+                f"{_ton(row.floor)} | {_ton(row.median)} | {row.depth}"
             )
 
     trades = (
@@ -99,7 +109,7 @@ async def market_context(session: AsyncSession, *, limit: int = MAX_GIFTS) -> st
 
 
 async def gift_context(session: AsyncSession, gift_id: int) -> str | None:
-    """Everything known about one gift: listings, movement and real sales."""
+    """Everything known about one gift: traits, listings, movement, real sales."""
     repository = GiftRepository(session)
     result = await repository.detail(gift_id)
     if result is None:
@@ -116,7 +126,10 @@ async def gift_context(session: AsyncSession, gift_id: int) -> str | None:
     lines = [
         f"GIFT: {gift.name or gift.canonical_id}",
         f"Collection: {collection or 'unresolved'}",
-        f"Model: {gift.model or 'unresolved'}",
+        f"Model: {_trait(gift.model, gift.model_rarity)}",
+        f"Backdrop: {_trait(gift.backdrop, gift.backdrop_rarity)}",
+        f"Symbol: {_trait(gift.symbol, gift.symbol_rarity)}",
+        f"Rarity tier: {gift.rarity_tier or 'unknown, no source published a rarity'}",
         f"Floor: {_ton(floor)}",
         f"Median of active listings: {_ton(prices[len(prices) // 2] if prices else None)}",
         f"Active listings: {len(active)}",
@@ -125,7 +138,9 @@ async def gift_context(session: AsyncSession, gift_id: int) -> str | None:
     if change is not None:
         lines.append(f"Floor change over 24h: {Decimal(change):.2f}%")
     if deal is not None:
-        lines.append(f"Discount against the same model peers: {Decimal(deal):.2f}%")
+        lines.append(
+            f"Discount against peers of the same model and rarity tier: {Decimal(deal):.2f}%"
+        )
     if active:
         lines.append("Cheapest listings:")
         for item in active[:5]:
