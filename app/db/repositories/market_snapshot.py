@@ -11,9 +11,12 @@ from app.db.repositories.collections import CollectionRepository
 from app.market.identity import collection_key
 from app.market.models import MarketSnapshot
 from app.market.normalize import normalize_snapshot
+from app.market.rarity import rarity_tier
 
 # Rounding noise is not a price change worth telling anyone about.
 MIN_CHANGE_PERCENT = Decimal("0.5")
+# The three traits that carry a premium. Model alone was never enough.
+TRAITS = ("model", "backdrop", "symbol")
 
 
 @dataclass
@@ -185,6 +188,26 @@ class MarketSnapshotRepository:
         collection = await self.collections.get_or_create(key, name)
         return collection.id
 
+    @staticmethod
+    def _apply_traits(gift: Gift, item) -> None:
+        """Fill in attributes we do not have yet, never blank ones we do.
+
+        One marketplace publishing the backdrop while another omits it is
+        normal. A crawl from the quieter source must not erase what the
+        richer one already told us.
+        """
+        for trait in TRAITS:
+            name = getattr(item, trait, None)
+            if name and not getattr(gift, trait):
+                setattr(gift, trait, name)
+            percent_field = f"{trait}_rarity"
+            percent = getattr(item, percent_field, None)
+            if percent is not None and getattr(gift, percent_field) is None:
+                setattr(gift, percent_field, percent)
+        gift.rarity_tier = rarity_tier(
+            gift.model_rarity, gift.backdrop_rarity, gift.symbol_rarity
+        )
+
     async def _get_or_create_gift(self, key: str, item) -> Gift:
         image_url = str(item.image_url) if item.image_url else None
         gift = await self.session.scalar(select(Gift).where(Gift.canonical_id == key))
@@ -195,15 +218,15 @@ class MarketSnapshotRepository:
                 collection_id=collection_id,
                 gift_number=item.gift_number,
                 name=item.name,
-                model=item.model,
                 image_url=image_url,
             )
+            self._apply_traits(gift, item)
             self.session.add(gift)
             await self.session.flush()
         else:
             gift.name = item.name or gift.name
-            gift.model = item.model or gift.model
             gift.image_url = gift.image_url or image_url
             gift.collection_id = gift.collection_id or collection_id
             gift.gift_number = gift.gift_number if gift.gift_number is not None else item.gift_number
+            self._apply_traits(gift, item)
         return gift

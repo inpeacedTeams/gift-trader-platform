@@ -11,8 +11,9 @@ MIN_PEERS = 3
 class DealRepository:
     """Finds listings priced below their own peer group.
 
-    A gift is only comparable to the same model inside the same collection:
-    a rare model is not overpriced just because a common one is cheaper.
+    A gift is only comparable to the same model, in the same collection, at
+    the same rarity tier. A rare backdrop is not a bargain because the plain
+    ones are cheaper, and it is not overpriced either.
     """
 
     def __init__(self, session: AsyncSession):
@@ -23,6 +24,7 @@ class DealRepository:
             select(
                 Gift.collection_id.label("collection_id"),
                 Gift.model.label("model"),
+                Gift.rarity_tier.label("rarity_tier"),
                 func.percentile_cont(0.5)
                 .within_group(Listing.price_ton.asc())
                 .label("median_ton"),
@@ -30,7 +32,7 @@ class DealRepository:
             )
             .join(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
             .where(Gift.collection_id.is_not(None), Gift.model.is_not(None))
-            .group_by(Gift.collection_id, Gift.model)
+            .group_by(Gift.collection_id, Gift.model, Gift.rarity_tier)
             .having(func.count(Listing.id) >= MIN_PEERS)
             .subquery()
         )
@@ -49,6 +51,9 @@ class DealRepository:
                 Gift.id.label("gift_id"),
                 Gift.name,
                 Gift.model,
+                Gift.backdrop,
+                Gift.symbol,
+                Gift.rarity_tier,
                 Gift.gift_number,
                 Gift.image_url,
                 Gift.collection_id,
@@ -63,7 +68,9 @@ class DealRepository:
             .join(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
             .join(
                 peers,
-                (peers.c.collection_id == Gift.collection_id) & (peers.c.model == Gift.model),
+                (peers.c.collection_id == Gift.collection_id)
+                & (peers.c.model == Gift.model)
+                & peers.c.rarity_tier.is_not_distinct_from(Gift.rarity_tier),
             )
             .outerjoin(Collection, Collection.id == Gift.collection_id)
             .where(discount >= min_discount_percent)
@@ -78,6 +85,9 @@ class DealRepository:
                 "gift_id": row.gift_id,
                 "name": row.name,
                 "model": row.model,
+                "backdrop": row.backdrop,
+                "symbol": row.symbol,
+                "rarity_tier": row.rarity_tier,
                 "gift_number": row.gift_number,
                 "image_url": row.image_url,
                 "collection_id": row.collection_id,

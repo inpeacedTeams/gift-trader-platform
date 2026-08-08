@@ -9,18 +9,28 @@ from app.db.models import Collection, Gift, Listing, PriceSnapshot
 SORTS = ("recent", "floor_asc", "floor_desc", "depth", "change_desc", "change_asc", "deal_desc")
 # A discount is only meaningful once the peer group has real depth.
 MIN_PEER_LISTINGS = 3
+# The traits the catalog can filter and break down by.
+TRAIT_COLUMNS = (
+    ("model", Gift.model, Gift.model_rarity),
+    ("backdrop", Gift.backdrop, Gift.backdrop_rarity),
+    ("symbol", Gift.symbol, Gift.symbol_rarity),
+)
 
 
 def _peer_medians():
-    """Median active price for every collection and model pair.
+    """Median active price for every collection, model and rarity tier.
 
-    This is the reference a gift is judged against: same series, same model,
-    so a cheap common model never looks like a bargain next to a rare one.
+    This is the reference a gift is judged against. Rarity belongs in the key:
+    a Plush Pepe with a one in five hundred backdrop is not overpriced just
+    because the plain ones are cheaper, and the old model only grouping made
+    exactly that mistake. Gifts with no rarity data group together under a
+    NULL tier, which is why the join is NULL safe.
     """
     return (
         select(
             Gift.collection_id.label("collection_id"),
             Gift.model.label("model"),
+            Gift.rarity_tier.label("rarity_tier"),
             func.percentile_cont(0.5)
             .within_group(Listing.price_ton.asc())
             .label("peer_median"),
@@ -28,8 +38,17 @@ def _peer_medians():
         )
         .join(Listing, and_(Listing.gift_id == Gift.id, Listing.active.is_(True)))
         .where(Gift.model.is_not(None), Gift.collection_id.is_not(None))
-        .group_by(Gift.collection_id, Gift.model)
+        .group_by(Gift.collection_id, Gift.model, Gift.rarity_tier)
         .subquery()
+    )
+
+
+def _peer_join(peers, tier=None):
+    """Match a gift to its peer group. NULL tiers must match each other."""
+    return and_(
+        peers.c.collection_id == Gift.collection_id,
+        peers.c.model == Gift.model,
+        peers.c.rarity_tier.is_not_distinct_from(Gift.rarity_tier if tier is None else tier),
     )
 
 
@@ -44,6 +63,9 @@ class GiftRepository:
         marketplace: str | None,
         collection_id: int | None,
         model: str | None,
+        backdrop: str | None,
+        symbol: str | None,
+        rarity_tier: str | None,
         min_price: Decimal | None,
         max_price: Decimal | None,
         deals_only: bool,
@@ -84,10 +106,7 @@ class GiftRepository:
                 deal,
             )
             .outerjoin(Listing, listing_join)
-            .outerjoin(
-                peers,
-                and_(peers.c.collection_id == Gift.collection_id, peers.c.model == Gift.model),
-            )
+            .outerjoin(peers, _peer_join(peers))
             .group_by(Gift.id, peers.c.peer_median, peers.c.peer_count)
         )
         if active_only:
@@ -96,10 +115,22 @@ class GiftRepository:
             statement = statement.where(Gift.collection_id == collection_id)
         if model:
             statement = statement.where(Gift.model == model)
+        if backdrop:
+            statement = statement.where(Gift.backdrop == backdrop)
+        if symbol:
+            statement = statement.where(Gift.symbol == symbol)
+        if rarity_tier:
+            statement = statement.where(Gift.rarity_tier == rarity_tier)
         if search:
             pattern = f"%{search}%"
             statement = statement.where(
-                or_(Gift.name.ilike(pattern), Gift.model.ilike(pattern), Gift.canonical_id.ilike(pattern))
+                or_(
+                    Gift.name.ilike(pattern),
+                    Gift.model.ilike(pattern),
+                    Gift.backdrop.ilike(pattern),
+                    Gift.symbol.ilike(pattern),
+                    Gift.canonical_id.ilike(pattern),
+                )
             )
         if marketplace:
             statement = statement.having(func.count(Listing.id) > 0)
@@ -182,6 +213,9 @@ class GiftRepository:
         marketplace: str | None = None,
         collection_id: int | None = None,
         model: str | None = None,
+        backdrop: str | None = None,
+        symbol: str | None = None,
+        rarity_tier: str | None = None,
         min_price: Decimal | None = None,
         max_price: Decimal | None = None,
         deals_only: bool = False,
@@ -193,6 +227,9 @@ class GiftRepository:
             marketplace=marketplace,
             collection_id=collection_id,
             model=model,
+            backdrop=backdrop,
+            symbol=symbol,
+            rarity_tier=rarity_tier,
             min_price=min_price,
             max_price=max_price,
             deals_only=deals_only,
@@ -222,6 +259,43 @@ class GiftRepository:
         rows = await self.session.scalars(statement.distinct().order_by(Gift.model.asc()))
         return [model for model in rows.all() if model]
 
+    async def attributes(self, collection_id: int | None = None) -> dict[str, list[dict]]:
+        """Every trait we track, with how scarce it is and what it costs.
+
+        Rarity says how few exist, the floor says what the market pays. A
+        flipper needs both: a 0.2% backdrop trading at the collection floor is
+        the whole trade, and neither number alone reveals it.
+        """
+        groups: dict[str, list[dict]] = {}
+        for slot, column, rarity_column in TRAIT_COLUMNS:
+            statement = (
+                select(
+                    column.label("value"),
+                    func.min(rarity_column).label("rarity_percent"),
+                    func.count(func.distinct(Gift.id)).label("gift_count"),
+                    func.count(Listing.id).label("listings_count"),
+                    func.min(Listing.price_ton).label("floor_ton"),
+                )
+                .outerjoin(Listing, and_(Listing.gift_id == Gift.id, Listing.active.is_(True)))
+                .where(column.is_not(None), Gift.is_active.is_(True))
+                .group_by(column)
+                .order_by(column.asc())
+            )
+            if collection_id is not None:
+                statement = statement.where(Gift.collection_id == collection_id)
+            rows = (await self.session.execute(statement)).all()
+            groups[slot] = [
+                {
+                    "value": row.value,
+                    "rarity_percent": row.rarity_percent,
+                    "gift_count": int(row.gift_count or 0),
+                    "listings_count": int(row.listings_count or 0),
+                    "floor_ton": row.floor_ton,
+                }
+                for row in rows
+            ]
+        return groups
+
     async def collection_name(self, collection_id: int | None) -> str | None:
         if collection_id is None:
             return None
@@ -248,7 +322,9 @@ class GiftRepository:
         row = (
             await self.session.execute(
                 select(peers.c.peer_median, peers.c.peer_count).where(
-                    peers.c.collection_id == gift.collection_id, peers.c.model == gift.model
+                    peers.c.collection_id == gift.collection_id,
+                    peers.c.model == gift.model,
+                    peers.c.rarity_tier.is_not_distinct_from(gift.rarity_tier),
                 )
             )
         ).first()
