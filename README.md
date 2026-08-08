@@ -30,7 +30,7 @@ cp .env.example .env
 docker compose up -d postgres
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+pip install -r requirements.lock
 uvicorn app.main:app --reload
 ```
 
@@ -44,7 +44,7 @@ pytest -q
 cd web && npm ci && npm run build
 ```
 
-GitHub Actions runs the same backend lint/tests and frontend build for pushes and pull requests to `main`.
+All direct Python dependencies are pinned in `pyproject.toml` and `requirements.lock`. GitHub Actions installs that lock file and runs the same backend lint/tests and frontend build for pushes and pull requests to `main`.
 
 ## Key endpoints
 
@@ -54,4 +54,5 @@ GitHub Actions runs the same backend lint/tests and frontend build for pushes an
 - `GET /api/arbitrage`: fee-aware live opportunities
 - `GET /api/portfolio/overview`: TONAPI holdings and valuation
 - `GET /api/portfolio/history`: persisted portfolio valuation history
+- `GET /api/portfolio/resolver-summary`: unknown NFT resolver telemetry
 - `GET /api/alerts/events`: user alert events
