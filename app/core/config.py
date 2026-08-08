@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     trade_sync_enabled: bool = True
     portfolio_sync_interval_seconds: int = 300
     portfolio_sync_enabled: bool = True
+    # AI assistant. The key is server side only and never reaches the browser.
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    # Free router: OpenRouter picks a zero cost model that fits the request.
+    openrouter_model: str = "openrouter/free"
+    openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
+    openrouter_timeout_seconds: float = 45.0
+    ai_daily_limit_per_user: int = 40
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
