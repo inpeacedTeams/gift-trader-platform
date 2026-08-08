@@ -14,5 +14,37 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_NAME: ${APP_NAME:-gift-trader-api}
+      DATABASE_URL: postgresql+asyncpg://gift_trader:gift_trader@postgres:5432/gift_trader
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-604800}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TONAPI_BASE_URL: ${TONAPI_BASE_URL:-https://tonapi.io}
+      TONAPI_TOKEN: ${TONAPI_TOKEN:-}
+      PORTALS_ENDPOINT: ${PORTALS_ENDPOINT:-https://portal-market.com/api}
+      GETGEMS_COLLECTION_ADDRESSES: ${GETGEMS_COLLECTION_ADDRESSES:-}
+      SOURCE_TIMEOUT_SECONDS: ${SOURCE_TIMEOUT_SECONDS:-20}
+      SOURCE_RETRIES: ${SOURCE_RETRIES:-2}
+      SOURCE_BACKOFF_SECONDS: ${SOURCE_BACKOFF_SECONDS:-0.5}
+      MARKET_SYNC_INTERVAL_SECONDS: ${MARKET_SYNC_INTERVAL_SECONDS:-300}
+      MARKET_SYNC_ENABLED: ${MARKET_SYNC_ENABLED:-true}
+      PORTFOLIO_SYNC_INTERVAL_SECONDS: ${PORTFOLIO_SYNC_INTERVAL_SECONDS:-300}
+      PORTFOLIO_SYNC_ENABLED: ${PORTFOLIO_SYNC_ENABLED:-true}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "python -m app.db.migrate && python -m app.db.verify_schema && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    restart: unless-stopped
+
 volumes:
   gift_trader_pg:
