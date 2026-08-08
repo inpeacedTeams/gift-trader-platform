@@ -25,6 +25,8 @@ from app.market.models import SourceUnavailable
 logger = logging.getLogger(__name__)
 # One page per source. Cheap lots sort to the front, so this is where they land.
 SNIPE_PAGES = 1
+# A gift is comparable to its own collection, model and rarity tier.
+PeerKey = tuple[int | None, str | None, str | None]
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,10 @@ class SnipeReport:
 def _ton(value: Decimal) -> str:
     """90.000000000 is noise. Print what a person would write."""
     return format(value.normalize(), "f")
+
+
+def _peer_key(gift: Gift) -> PeerKey:
+    return (gift.collection_id, gift.model, gift.rarity_tier)
 
 
 def _matches(watch: SniperWatch, gift: Gift, listing: Listing, peer_median: Decimal | None) -> bool:
@@ -60,8 +66,9 @@ def _matches(watch: SniperWatch, gift: Gift, listing: Listing, peer_median: Deci
 
 def _message(gift: Gift, listing: Listing, discount: Decimal | None) -> str:
     title = gift.name or f"Gift #{gift.id}"
-    if gift.model:
-        title = f"{title} · {gift.model}"
+    traits = " · ".join(part for part in (gift.model, gift.backdrop, gift.symbol) if part)
+    if traits:
+        title = f"{title} · {traits}"
     lines = [
         "🎯 Снайпер",
         "",
@@ -69,7 +76,7 @@ def _message(gift: Gift, listing: Listing, discount: Decimal | None) -> str:
         f"{_ton(listing.price_ton)} TON на {listing.marketplace}",
     ]
     if discount is not None and discount > 0:
-        lines.append(f"На {discount:.0f}% ниже медианы модели")
+        lines.append(f"На {discount:.0f}% ниже медианы похожих лотов")
     if listing.url:
         lines.extend(["", listing.url])
     return "\n".join(lines)
@@ -122,7 +129,7 @@ async def run_sniper(settings: Settings | None = None) -> SnipeReport:
         medians = await _peer_medians(session, touched)
 
         for listing, gift in rows:
-            peer_median = medians.get((gift.collection_id, gift.model))
+            peer_median = medians.get(_peer_key(gift))
             for watch in watches:
                 if not _matches(watch, gift, listing, peer_median):
                     continue
@@ -155,10 +162,12 @@ async def run_sniper(settings: Settings | None = None) -> SnipeReport:
     return SnipeReport(scanned, hits)
 
 
-async def _peer_medians(
-    session: AsyncSession, gift_ids: set[int]
-) -> dict[tuple[int | None, str | None], Decimal]:
-    """Model medians for the collections we just touched.
+async def _peer_medians(session: AsyncSession, gift_ids: set[int]) -> dict[PeerKey, Decimal]:
+    """Peer medians for the collections we just touched.
+
+    Keyed on rarity as well as model: without it a one in five hundred
+    backdrop reads as a 60% discount against the plain ones and fires a hit
+    on a perfectly fair price.
 
     Scoped on purpose: aggregating every active listing on the market every
     twenty seconds is a lot of work for a handful of new lots.
@@ -171,11 +180,16 @@ async def _peer_medians(
             select(
                 Gift.collection_id,
                 Gift.model,
+                Gift.rarity_tier,
                 func.percentile_cont(0.5).within_group(Listing.price_ton.asc()),
             )
             .join(Listing, (Listing.gift_id == Gift.id) & Listing.active.is_(True))
             .where(Gift.collection_id.in_(collections), Gift.model.is_not(None))
-            .group_by(Gift.collection_id, Gift.model)
+            .group_by(Gift.collection_id, Gift.model, Gift.rarity_tier)
         )
     ).all()
-    return {(collection_id, model): median for collection_id, model, median in rows if median}
+    return {
+        (collection_id, model, tier): median
+        for collection_id, model, tier, median in rows
+        if median
+    }
