@@ -1,42 +1,40 @@
 # Database migrations
 
-Ordered SQL migrations live in `versions/`.
+Ordered SQL files in `versions/`, applied in lexical order.
 
 ```bash
-python -m app.db.migrate
-python -m app.db.migrate  # safe no-op, required in CI
-python -m app.db.verify_schema
+python -m app.db.migrate         # idempotent, safe to re-run
+python -m app.db.verify_schema   # fails loudly on a half applied schema
 ```
 
-The runner creates `schema_migrations`, applies files in lexical order, stores
-a SHA-256 checksum, and records every version transactionally. If two legacy
-files contain the same SQL, the later one is recorded as `skipped_duplicate`
-instead of executing twice.
+The runner creates `schema_migrations`, stores a SHA-256 checksum per file and
+records every version transactionally. If two legacy files contain identical
+SQL, the later one is recorded as `skipped_duplicate` rather than executed
+twice.
 
-`verify_schema` is the safety net. A migration that only adds a column can
-fail without taking the table with it, and the first symptom would otherwise
-be a query breaking inside a background worker.
+`verify_schema` is the safety net: a migration that only adds columns can fail
+silently, and the first symptom would otherwise be a query blowing up in
+production. It checks the tables, the columns later migrations added, and the
+columns later migrations made nullable.
 
-## Clean install order
+## Current order
 
-| Version | What it adds |
+| File | What it adds |
 | --- | --- |
-| `0001_market_foundation` | Collections, gifts, listings, price snapshots |
-| `0002_user_features` | Users, watchlist, wallets, alert rules and events |
-| `0003_portfolio_holdings` | Wallet holdings |
-| `0004_portfolio_valuation` | Portfolio value over time |
-| `0005_portfolio_valuation_provenance` | Where each valuation came from |
-| `0006_alert_notification_delivery` | Telegram delivery state on alert events |
-| `0007_resolver_telemetry` | Why an NFT could not be priced |
-| `0008_market_events` | Change log: listed, delisted, price moves |
-| `0009_query_indexes` | Partial indexes for the hot read paths |
-| `0010_liquidity` | `listings.closed_at`, which gives time to sale |
-| `0011_sniper` | Sniper watches and their hits |
-| `0012_attribute_rarity` | Backdrop, symbol, per trait rarity and rarity tier |
-| `0013_positions` | What the user paid, and what they sold it for |
-| `0014_seller_identities` | Seller handles, plus undercut notice state |
-| `0015_alert_events_without_rule` | Alerts that fire from a watch, not a rule |
+| `0001_market_foundation.sql` | Collections, gifts, listings, price snapshots |
+| `0002_user_features.sql` | Users, watchlist, wallets, alert rules and events |
+| `0003_portfolio_holdings.sql` | Wallet holdings |
+| `0004_portfolio_valuation.sql` | Valuation history |
+| `0005_portfolio_valuation_provenance.sql` | Where a valuation came from |
+| `0006_alert_notification_delivery.sql` | Telegram delivery state on alerts |
+| `0007_resolver_telemetry.sql` | Unresolved NFT telemetry |
+| `0008_market_events.sql` | Change log: listed, delisted, price up, price down |
+| `0009_query_indexes.sql` | Partial indexes for the hot read paths |
+| `0010_liquidity.sql` | `listings.closed_at`, which gives time to sale |
+| `0011_sniper.sql` | Sniper watches and hits |
+| `0012_attribute_rarity.sql` | Backdrop, symbol, per trait rarity, rarity tier |
+| `0013_positions.sql` | Positions: entry price, exit, P&L basis |
+| `0014_seller_identities.sql` | Seller handles and undercut notices |
+| `0015_alert_events_without_rule.sql` | Alerts that fire without a rule (sniper, undercut) |
 
-New migrations must use a fresh filename and a fresh numeric prefix. Never
-reuse a prefix, and never edit a migration that has already been applied: the
-checksum is what makes a partial deploy detectable.
+New migrations must use a unique filename and must not reuse a numeric prefix.
