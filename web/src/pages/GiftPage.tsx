@@ -3,6 +3,7 @@ import { ArrowLeft, ExternalLink, Layers, Tag } from "lucide-react";
 import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
+import { AiVerdict } from "../components/AiVerdict";
 import { GiftImage } from "../components/GiftImage";
 import { PriceChart } from "../components/PriceChart";
 import { QuickAlert } from "../components/QuickAlert";
@@ -86,6 +87,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollecti
           </div>
         </div>
       </div>
+      <AiVerdict giftId={gift.id} authenticated={authenticated} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">

@@ -1,22 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoaderCircle, Sparkles } from "lucide-react";
-import { getAiVerdict } from "../api";
+import { getAiStatus, getAiVerdict } from "../api";
 import "./ai.css";
 
 type Props = {
   giftId: number;
-  enabled: boolean;
   authenticated: boolean;
 };
 
 /** Short read on one gift, requested only when the user asks for it.
  *
- * Loading it automatically would burn the shared API quota on every page view.
+ * Loading it automatically would spend the shared API budget on every page
+ * view, so the call is behind a button.
  */
-export function AiVerdict({ giftId, enabled, authenticated }: Props) {
+export function AiVerdict({ giftId, authenticated }: Props) {
+  const [enabled, setEnabled] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getAiStatus()
+      .then(status => setEnabled(status.enabled))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  useEffect(() => {
+    setAnswer(null);
+    setError(null);
+  }, [giftId]);
 
   if (!enabled) return null;
 
@@ -27,7 +39,7 @@ export function AiVerdict({ giftId, enabled, authenticated }: Props) {
       const result = await getAiVerdict(giftId);
       setAnswer(result.answer);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The analyst is unavailable");
+      setError(e instanceof Error ? e.message : "Ассистент недоступен");
     } finally {
       setLoading(false);
     }
@@ -38,13 +50,13 @@ export function AiVerdict({ giftId, enabled, authenticated }: Props) {
       <div className="ai-card-head">
         <Sparkles size={16} />
         <div>
-          <strong>Analyst verdict</strong>
-          <small>Reads floor, peers and confirmed sales for this gift.</small>
+          <strong>Мнение аналитика</strong>
+          <small>Читает цену, соседей по модели и реальные продажи этого подарка.</small>
         </div>
         {!answer && (
           <button className="outline-btn" disabled={loading || !authenticated} onClick={() => void run()}>
             {loading ? <LoaderCircle size={14} className="spin" /> : <Sparkles size={14} />}
-            {authenticated ? "Ask" : "Sign in"}
+            {authenticated ? "Спросить" : "Нужен вход"}
           </button>
         )}
       </div>
