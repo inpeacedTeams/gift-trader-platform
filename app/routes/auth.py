@@ -4,13 +4,33 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import issue_token, validate_telegram_init_data, current_user
-from app.db.models import User
+from app.db.models import SellerIdentity, User
 from app.db.session import get_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 class TelegramAuthRequest(BaseModel):
     init_data: str
+
+
+async def _ensure_seller_identity(session: AsyncSession, user: User) -> None:
+    """Tonnel and MRKT publish the seller as a Telegram id, and we have one.
+
+    Recording it at login means a user's own listings are recognised on the
+    very next crawl, with nothing for them to configure.
+    """
+    handle = str(user.telegram_id)
+    known = await session.scalar(
+        select(SellerIdentity.id).where(
+            SellerIdentity.user_id == user.id,
+            SellerIdentity.seller == handle,
+            SellerIdentity.marketplace.is_(None),
+        )
+    )
+    if known is None:
+        session.add(
+            SellerIdentity(user_id=user.id, seller=handle, marketplace=None, source="telegram")
+        )
 
 @router.post("/telegram")
 async def telegram_auth(body: TelegramAuthRequest, session: AsyncSession = Depends(get_session)):
@@ -25,6 +45,8 @@ async def telegram_auth(body: TelegramAuthRequest, session: AsyncSession = Depen
         user.first_name = telegram.get("first_name")
         user.last_name = telegram.get("last_name")
         user.last_login_at = now
+    await session.flush()
+    await _ensure_seller_identity(session, user)
     await session.commit()
     await session.refresh(user)
     return {"access_token": issue_token(user.id), "token_type": "bearer", "user": {"id": user.id, "telegram_id": user.telegram_id, "username": user.username, "first_name": user.first_name}}
