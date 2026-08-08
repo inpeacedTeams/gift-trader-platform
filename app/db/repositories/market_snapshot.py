@@ -87,6 +87,9 @@ class MarketSnapshotRepository:
                     listing.last_seen_at = item.observed_at
                     listing.active = True
                     if reappeared:
+                        # Relisted: the previous life is over, start a new clock.
+                        listing.closed_at = None
+                        listing.first_seen_at = item.observed_at
                         self._record(gift.id, listing, "listed", item.price_ton, None, now)
                     else:
                         self._maybe_price_event(gift.id, listing, previous, item.price_ton, now)
@@ -150,7 +153,11 @@ class MarketSnapshotRepository:
         )
 
     async def _close_missing(self, marketplace: str, now: datetime) -> set[int]:
-        """Anything not seen in this pass is gone from the market."""
+        """Anything not seen in this pass is gone from the market.
+
+        Stamping closed_at is what lets us measure how long a listing lived,
+        which is the only honest signal of how liquid a gift is.
+        """
         stale = (
             await self.session.scalars(
                 select(Listing).where(
@@ -166,7 +173,7 @@ class MarketSnapshotRepository:
             await self.session.execute(
                 update(Listing)
                 .where(Listing.id.in_([item.id for item in stale]))
-                .values(active=False)
+                .values(active=False, closed_at=now)
             )
         return {listing.gift_id for listing in stale}
 
