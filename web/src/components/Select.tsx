@@ -1,4 +1,4 @@
-import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import "./select.css";
 
@@ -10,156 +10,129 @@ type Props = {
   onChange: (value: string) => void;
   options?: SelectOption[];
   groups?: SelectGroup[];
-  label?: string;
-  /** Render the label inside the trigger, for filter bars where height matters. */
-  inlineLabel?: boolean;
   placeholder?: string;
+  label?: string;
   disabled?: boolean;
 };
 
-type Row = { kind: "group"; label: string } | { kind: "option"; option: SelectOption; index: number };
-
-function buildRows(options?: SelectOption[], groups?: SelectGroup[]): Row[] {
-  const rows: Row[] = [];
-  let index = 0;
-  if (groups) {
-    for (const group of groups) {
-      rows.push({ kind: "group", label: group.label });
-      for (const option of group.options) rows.push({ kind: "option", option, index: index++ });
-    }
-    return rows;
-  }
-  for (const option of options ?? []) rows.push({ kind: "option", option, index: index++ });
-  return rows;
-}
-
-/** Listbox that keeps the product's own surface language instead of OS chrome. */
-export function Select({ value, onChange, options, groups, label, inlineLabel, placeholder = "Select", disabled }: Props) {
-  const id = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+/** Styled listbox that matches the app shell.
+ *
+ * Native selects render with OS chrome that ignores the dark theme, so this
+ * keeps the visual language consistent while staying keyboard accessible.
+ */
+export function Select({ value, onChange, options, groups, placeholder = "Select", label, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const listId = useId();
 
-  const rows = useMemo(() => buildRows(options, groups), [options, groups]);
-  const flat = useMemo(() => rows.flatMap(row => (row.kind === "option" ? [row.option] : [])), [rows]);
-  const selectedIndex = Math.max(0, flat.findIndex(option => option.value === value));
-  const selected = flat[selectedIndex];
+  const flat = useMemo<SelectOption[]>(
+    () => (groups ? groups.flatMap(group => group.options) : options ?? []),
+    [groups, options]
+  );
+  const selected = flat.find(option => option.value === value) ?? null;
 
   useEffect(() => {
     if (!open) return;
-    setActive(selectedIndex);
-    const dismiss = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    const index = flat.findIndex(option => option.value === value);
+    setActive(index < 0 ? 0 : index);
+  }, [open, value, flat]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
-    document.addEventListener("pointerdown", dismiss);
-    return () => document.removeEventListener("pointerdown", dismiss);
-  }, [open, selectedIndex]);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [open, active]);
-
-  const commit = (option: SelectOption) => {
-    onChange(option.value);
+  const commit = (next: string) => {
+    onChange(next);
     setOpen(false);
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: React.KeyboardEvent) => {
     if (disabled) return;
-    const keys = ["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "];
-    if (!open) {
-      if (!keys.includes(event.key)) return;
+    if (event.key === "Escape") return setOpen(false);
+    if (!open && ["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) {
       event.preventDefault();
-      setOpen(true);
-      return;
+      return setOpen(true);
     }
-    if (event.key === "Escape" || event.key === "Tab") {
-      setOpen(false);
-      return;
-    }
-    if (!keys.includes(event.key)) return;
-    event.preventDefault();
-    if (event.key === "Enter" || event.key === " ") {
+    if (!open) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive(index => (index + 1) % flat.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive(index => (index - 1 + flat.length) % flat.length);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setActive(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setActive(flat.length - 1);
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
       const option = flat[active];
-      if (option) commit(option);
-      return;
+      if (option) commit(option.value);
+    } else if (event.key === "Tab") {
+      setOpen(false);
     }
-    const last = flat.length - 1;
-    if (event.key === "Home") setActive(0);
-    else if (event.key === "End") setActive(last);
-    else if (event.key === "ArrowDown") setActive(current => (current >= last ? 0 : current + 1));
-    else setActive(current => (current <= 0 ? last : current - 1));
+  };
+
+  const renderOption = (option: SelectOption) => {
+    const index = flat.indexOf(option);
+    const isSelected = option.value === value;
+    return (
+      <li
+        key={option.value}
+        id={`${listId}-${index}`}
+        role="option"
+        aria-selected={isSelected}
+        className={`ui-option${index === active ? " active" : ""}${isSelected ? " selected" : ""}`}
+        onMouseEnter={() => setActive(index)}
+        onMouseDown={event => event.preventDefault()}
+        onClick={() => commit(option.value)}
+      >
+        <span className="ui-option-copy">
+          {option.label}
+          {option.hint && <small>{option.hint}</small>}
+        </span>
+        {isSelected && <Check size={13} />}
+      </li>
+    );
   };
 
   return (
-    <div
-      className={`ui-select${open ? " open" : ""}${inlineLabel ? " inline" : ""}`}
-      ref={rootRef}
-      onKeyDown={onKeyDown}
-    >
-      {label && !inlineLabel && (
-        <span className="ui-select-label" id={`${id}-label`}>
-          {label}
-        </span>
-      )}
+    <div className={`ui-select${open ? " open" : ""}${disabled ? " disabled" : ""}`} ref={root}>
       <button
         type="button"
         className="ui-select-trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-labelledby={label ? `${id}-label ${id}-value` : undefined}
-        aria-activedescendant={open ? `${id}-opt-${active}` : undefined}
+        aria-label={label}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
         disabled={disabled}
         onClick={() => setOpen(current => !current)}
+        onKeyDown={onKeyDown}
       >
-        {inlineLabel && label && (
-          <span className="ui-select-inline-label" id={`${id}-label`}>
-            {label}
-          </span>
-        )}
-        <span className="ui-select-value" id={`${id}-value`}>
-          {selected?.label ?? placeholder}
-        </span>
-        <ChevronDown size={15} className="ui-select-chevron" aria-hidden="true" />
+        <span className={selected ? "ui-value" : "ui-value muted"}>{selected?.label ?? placeholder}</span>
+        <ChevronDown size={14} className="ui-caret" />
       </button>
       {open && (
-        <div
-          className="ui-select-menu"
-          role="listbox"
-          ref={listRef}
-          aria-labelledby={label ? `${id}-label` : undefined}
-        >
-          {rows.map((row, position) =>
-            row.kind === "group" ? (
-              <div className="ui-select-group" key={`group-${row.label}`} role="presentation">
-                {row.label}
-              </div>
-            ) : (
-              <button
-                type="button"
-                key={row.option.value}
-                id={`${id}-opt-${row.index}`}
-                data-index={row.index}
-                role="option"
-                aria-selected={row.option.value === value}
-                className={`ui-select-option${row.index === active ? " active" : ""}`}
-                style={{ animationDelay: `${Math.min(position, 8) * 18}ms` }}
-                onPointerEnter={() => setActive(row.index)}
-                onClick={() => commit(row.option)}
-              >
-                <span className="ui-select-option-copy">
-                  {row.option.label}
-                  {row.option.hint && <small>{row.option.hint}</small>}
-                </span>
-                {row.option.value === value && <Check size={14} className="ui-select-check" />}
-              </button>
-            ),
-          )}
-        </div>
+        <ul className="ui-listbox" role="listbox" id={listId} tabIndex={-1}>
+          {groups
+            ? groups.map(group => (
+                <li key={group.label} className="ui-group">
+                  <span className="ui-group-label">{group.label}</span>
+                  <ul role="group" aria-label={group.label}>
+                    {group.options.map(renderOption)}
+                  </ul>
+                </li>
+              ))
+            : (options ?? []).map(renderOption)}
+        </ul>
       )}
     </div>
   );

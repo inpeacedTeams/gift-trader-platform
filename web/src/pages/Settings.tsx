@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Database, ExternalLink, ShieldCheck } from "lucide-react";
 import { Select } from "../components/Select";
 
-const CURRENCIES = [{ value: "TON", label: "TON", hint: "Only settlement currency today" }];
+const CURRENCIES = [{ value: "TON", label: "TON", hint: "Native settlement currency" }];
 
 export function Settings() {
   const [currency, setCurrency] = useState("TON");
@@ -14,15 +14,15 @@ export function Settings() {
           <h2>Settings</h2>
         </div>
       </div>
-      <div className="settings-grid">
-        <article className="settings-card">
+      <div className="settings-grid stagger">
+        <article className="settings-card lift">
           <div className="settings-title">
             <Database size={18} />
             <h3>Data sources</h3>
           </div>
           <div className="setting-line">
             <span>Tonnel</span>
-            <b className="source-live">Primary</b>
+            <b className="source-live">Live</b>
           </div>
           <div className="setting-line">
             <span>GetGems / TONAPI</span>
@@ -30,14 +30,10 @@ export function Settings() {
           </div>
           <div className="setting-line">
             <span>Portals</span>
-            <b className="fresh">Needs auth data</b>
-          </div>
-          <div className="setting-line">
-            <span>Fragment</span>
-            <b className="fresh">Opt in</b>
+            <b className="source-optional">Needs auth</b>
           </div>
         </article>
-        <article className="settings-card">
+        <article className="settings-card lift">
           <div className="settings-title">
             <ShieldCheck size={18} />
             <h3>Trading guardrails</h3>
@@ -48,16 +44,14 @@ export function Settings() {
             <small>Signals below this percentage stay hidden.</small>
           </label>
           <div className="field">
-            <Select label="Currency" value={currency} onChange={setCurrency} options={CURRENCIES} />
+            Currency
+            <div className="field-control">
+              <Select label="Currency" value={currency} onChange={setCurrency} options={CURRENCIES} />
+            </div>
           </div>
         </article>
       </div>
-      <a
-        className="docs-link"
-        href="https://github.com/inpeacedTeams/gift-trader-platform"
-        target="_blank"
-        rel="noreferrer"
-      >
+      <a className="docs-link" href="https://github.com/inpeacedTeams/gift-trader-platform" target="_blank" rel="noreferrer">
         Open project documentation <ExternalLink size={14} />
       </a>
     </section>

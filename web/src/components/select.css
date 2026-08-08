@@ -1,178 +1,157 @@
-/* Dropdown built on the app's own surfaces: no OS chrome, no layout animation. */
+/* Custom select. Motion is limited to opacity and transform so it stays cheap. */
 .ui-select {
   position: relative;
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ui-select-label {
-  color: #8793a3;
-  font-size: 11px;
+  min-width: 150px;
 }
 
 .ui-select-trigger {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   width: 100%;
   height: 40px;
-  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 11px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 9px;
   background: #0c1118;
   color: #fff;
   font-size: 12px;
-  text-align: left;
-  transition: border-color 0.18s var(--ease-out-quint), background 0.18s var(--ease-out-quint);
+  transition: border-color 0.16s ease, background 0.16s ease;
 }
 
 .ui-select-trigger:hover:not(:disabled) {
-  border-color: #33415a;
-  background: #101722;
+  border-color: #35435a;
+  background: #10161f;
 }
 
 .ui-select-trigger:focus-visible {
-  outline: none;
-  border-color: #5b7fc7;
-  box-shadow: 0 0 0 3px rgba(125, 167, 255, 0.22);
+  outline: 0;
+  border-color: #5f83d6;
+  box-shadow: 0 0 0 3px rgba(95, 131, 214, 0.18);
 }
 
 .ui-select.open .ui-select-trigger {
-  border-color: #5b7fc7;
-  background: #101722;
+  border-color: #5f83d6;
 }
 
-.ui-select-inline-label {
-  color: #7d8899;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.ui-select-value {
-  flex: 1;
+.ui-value {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ui-select.inline .ui-select-value {
-  flex: none;
-  font-weight: 600;
+.ui-value.muted {
+  color: #6f7d8e;
 }
 
-.ui-select-chevron {
-  flex: none;
-  margin-left: auto;
-  color: #7d8899;
-  transition: transform 0.2s var(--ease-out-quint), color 0.2s var(--ease-out-quint);
+.ui-caret {
+  color: #7c8a9c;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
 }
 
-.ui-select.open .ui-select-chevron {
+.ui-select.open .ui-caret {
   transform: rotate(180deg);
-  color: #b6c4d6;
 }
 
-.ui-select-menu {
+.ui-select.disabled {
+  opacity: 0.55;
+}
+
+.ui-listbox {
   position: absolute;
+  z-index: 40;
   top: calc(100% + 6px);
   left: 0;
-  min-width: 100%;
-  max-height: 288px;
+  right: 0;
+  max-height: 280px;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  z-index: 40;
+  margin: 0;
   padding: 6px;
-  border: 1px solid #26303d;
-  border-radius: 12px;
-  background: #121821;
-  box-shadow: 0 20px 44px rgba(4, 7, 12, 0.55);
+  list-style: none;
+  border: 1px solid #2a3446;
+  border-radius: 11px;
+  background: #10161f;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   transform-origin: top center;
-  animation: ui-select-in 0.18s var(--ease-out-quint) both;
+  animation: ui-pop 0.14s ease-out;
 }
 
-.ui-select-group {
-  padding: 10px 10px 6px;
-  color: #6f7c8d;
+.ui-listbox ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-group + .ui-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #1e2733;
+}
+
+.ui-group-label {
+  display: block;
+  padding: 7px 10px 5px;
   font: 500 10px "DM Mono", monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #6c7a8c;
 }
 
-.ui-select-option {
+.ui-option {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  width: 100%;
   padding: 9px 10px;
-  border: 0;
   border-radius: 8px;
-  background: transparent;
-  color: #cdd6e2;
   font-size: 12px;
-  text-align: left;
-  transition: background 0.14s var(--ease-out-quint), color 0.14s var(--ease-out-quint);
-  animation: ui-option-in 0.16s var(--ease-out-quint) both;
+  color: #c3cddb;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.ui-select-option.active {
-  background: #1b2431;
+.ui-option.active {
+  background: #1a2331;
   color: #fff;
 }
 
-.ui-select-option[aria-selected="true"] {
-  color: #fff;
+.ui-option.selected {
+  color: #9cbaff;
 }
 
-.ui-select-option-copy {
-  display: grid;
-  gap: 3px;
-}
-
-.ui-select-option-copy small {
-  color: #7f8b9b;
-  font-size: 10px;
-}
-
-.ui-select-check {
-  margin-left: auto;
-  flex: none;
+.ui-option svg {
+  flex-shrink: 0;
   color: #83e7b3;
 }
 
-.ui-select-menu::-webkit-scrollbar {
-  width: 8px;
+.ui-option-copy small {
+  display: block;
+  margin-top: 3px;
+  color: #77footer;
+  color: #778496;
+  font-size: 10px;
 }
 
-.ui-select-menu::-webkit-scrollbar-thumb {
-  background: #26303d;
-  border-radius: 99px;
-}
-
-@keyframes ui-select-in {
+@keyframes ui-pop {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.985);
+    transform: translateY(-4px) scale(0.98);
   }
-}
-
-@keyframes ui-option-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-select-menu,
-  .ui-select-option {
+  .ui-listbox {
     animation: none;
   }
-
-  .ui-select-chevron,
+  .ui-caret,
   .ui-select-trigger,
-  .ui-select-option {
+  .ui-option {
     transition: none;
   }
 }

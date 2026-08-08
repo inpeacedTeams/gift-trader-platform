@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import type { Opportunity } from "../types";
 import { EmptyState } from "../components/State";
 import { Select } from "../components/Select";
@@ -7,9 +7,9 @@ import { formatCount, formatPercent, formatTon, formatTonDelta } from "../format
 
 const EDGE_OPTIONS = [
   { value: "0", label: "Any edge" },
-  { value: "5", label: "5% or more" },
-  { value: "10", label: "10% or more" },
-  { value: "20", label: "20% or more" },
+  { value: "5", label: "5% and above" },
+  { value: "10", label: "10% and above" },
+  { value: "20", label: "20% and above" },
 ];
 
 export function Opportunities({ items }: { items: Opportunity[] }) {
@@ -20,11 +20,9 @@ export function Opportunities({ items }: { items: Opportunity[] }) {
       items.filter(
         item =>
           Number(item.profit_percent) >= Number(minimum) &&
-          `${item.gift_key} ${item.buy_marketplace} ${item.sell_marketplace}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
+          `${item.gift_key} ${item.buy_marketplace} ${item.sell_marketplace}`.toLowerCase().includes(query.toLowerCase())
       ),
-    [items, query, minimum],
+    [items, query, minimum]
   );
   return (
     <section className="page-section">
@@ -40,19 +38,17 @@ export function Opportunities({ items }: { items: Opportunity[] }) {
       <div className="filter-bar">
         <label className="search">
           <Search size={16} />
-          <input
-            aria-label="Search opportunities"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search collection or marketplace"
-          />
+          <input aria-label="Search opportunities" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search collection or marketplace" />
         </label>
-        <Select inlineLabel label="Minimum edge" value={minimum} onChange={setMinimum} options={EDGE_OPTIONS} />
+        <div className="filter-select">
+          <Filter size={15} />
+          <Select label="Minimum edge" value={minimum} onChange={setMinimum} options={EDGE_OPTIONS} />
+        </div>
       </div>
       {filtered.length ? (
-        <div className="opportunity-grid">
+        <div className="opportunity-grid stagger">
           {filtered.map(item => (
-            <article className="opportunity-card" key={`${item.buy_listing_id}-${item.sell_listing_id}`}>
+            <article className="opportunity-card lift" key={`${item.buy_listing_id}-${item.sell_listing_id}`}>
               <div className="card-top">
                 <span className="gift-icon">✦</span>
                 <span className="verified">VERIFIED IDENTITY</span>
@@ -77,10 +73,7 @@ export function Opportunities({ items }: { items: Opportunity[] }) {
           ))}
         </div>
       ) : (
-        <EmptyState
-          title="No matching opportunities"
-          detail="Lower the minimum edge or wait for the live collectors to refresh."
-        />
+        <EmptyState title="No matching opportunities" detail="Lower the minimum edge or wait for the live collectors to refresh." />
       )}
     </section>
   );
