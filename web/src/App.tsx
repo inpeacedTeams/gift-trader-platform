@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { authenticateTelegram, getArbitrage, getMarkets, getMe, getWatchlist, type User } from "./api";
 import { clearToken } from "./auth";
-import type { ArbitrageResponse, MarketResponse } from "./types";
+import type { ArbitrageResponse, CollectionCard, MarketResponse } from "./types";
 import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
 import { Collections } from "./pages/Collections";
-import { Gifts, type CollectionFilter } from "./pages/Gifts";
+import { Gifts, type CollectionScope } from "./pages/Gifts";
 import { GiftPage } from "./pages/GiftPage";
 import { Opportunities } from "./pages/Opportunities";
 import { Watchlist } from "./pages/Watchlist";
@@ -21,7 +21,7 @@ const TITLES: Record<View, string> = { overview: "Market overview", collections:
 export default function App() {
   const [view, setView] = useState<View>("overview");
   const [selectedGift, setSelectedGift] = useState<number | null>(null);
-  const [collection, setCollection] = useState<CollectionFilter | null>(null);
+  const [scope, setScope] = useState<CollectionScope>(null);
   const [markets, setMarkets] = useState<MarketResponse | null>(null);
   const [arbitrage, setArbitrage] = useState<ArbitrageResponse | null>(null);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
@@ -31,15 +31,15 @@ export default function App() {
   const refresh = async () => { setLoading(true); setError(null); try { const [marketData, arbitrageData] = await Promise.all([getMarkets(), getArbitrage()]); setMarkets(marketData); setArbitrage(arbitrageData); } catch (e) { setError(e instanceof Error ? e.message : "Live API unavailable"); } finally { setLoading(false); } };
   useEffect(() => { void refresh(); void (async () => { try { const authenticated = await authenticateTelegram(); const me = authenticated ?? await getMe().catch(() => null); setUser(me); if (me) setWatchlistIds((await getWatchlist()).items.map(item => item.gift_id)); } catch { setUser(null); } })(); }, []);
   const signOut = () => { clearToken(); setUser(null); setWatchlistIds([]); };
-  const changeView = (next: View) => { setSelectedGift(null); if (next !== "gifts") setCollection(null); setView(next); };
-  const openCollection = (item: { id: number; name?: string | null; chain_address: string }) => { setCollection({ id: item.id, name: item.name ?? item.chain_address.slice(0, 16) }); setSelectedGift(null); setView("gifts"); };
+  const changeView = (next: View) => { setSelectedGift(null); if (next !== "gifts") setScope(null); setView(next); };
+  const openCollection = (collection: CollectionCard) => { setScope({ id: collection.id, name: collection.name }); setSelectedGift(null); setView("gifts"); };
   const opportunities = arbitrage?.opportunities ?? [];
   const page = view === "collections"
     ? <Collections onOpen={openCollection}/>
     : view === "gifts"
     ? (selectedGift === null
-        ? <Gifts onOpen={setSelectedGift} collection={collection} onClearCollection={() => setCollection(null)}/>
-        : <GiftPage giftId={selectedGift} onBack={() => setSelectedGift(null)} onOpenCollection={openCollection}/>)
+        ? <Gifts onOpen={setSelectedGift} collection={scope} onClearCollection={() => setScope(null)}/>
+        : <GiftPage giftId={selectedGift} onBack={() => setSelectedGift(null)} onOpenCollection={(id, name) => openCollection({ id, name } as CollectionCard)}/>)
     : view === "opportunities" ? <Opportunities items={opportunities}/>
     : view === "watchlist" ? <Watchlist markets={markets?.markets ?? []} watchlistIds={watchlistIds} authenticated={Boolean(user)} onToggle={async (giftId, active) => { if (!user) return; const api = await import("./api"); if (active) { await api.removeFromWatchlist(giftId); setWatchlistIds(ids => ids.filter(id => id !== giftId)); } else { await api.addToWatchlist(giftId); setWatchlistIds(ids => [...ids, giftId]); } }}/>
     : view === "portfolio" ? <Portfolio/>

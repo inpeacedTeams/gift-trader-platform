@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Layers } from "lucide-react";
 import { getGift, getGiftHistory } from "../api";
 import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
@@ -8,7 +8,7 @@ import { PriceChart } from "../components/PriceChart";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
 
-export function GiftPage({ giftId, onBack }: { giftId: number; onBack: () => void }) {
+export function GiftPage({ giftId, onBack, onOpenCollection }: { giftId: number; onBack: () => void; onOpenCollection?: (id: number, name: string) => void }) {
   const [gift, setGift] = useState<GiftDetail | null>(null);
   const [points, setPoints] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export function GiftPage({ giftId, onBack }: { giftId: number; onBack: () => voi
 
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
-  const title = gift.name ?? gift.canonical_id.slice(0, 18);
+  const title = gift.model ?? gift.name ?? gift.canonical_id.slice(0, 18);
   const active = gift.listings.filter(listing => listing.active);
 
   return (
@@ -53,7 +53,13 @@ export function GiftPage({ giftId, onBack }: { giftId: number; onBack: () => voi
             {title}
             {gift.gift_number ? <em> #{gift.gift_number}</em> : null}
           </h2>
-          <p className="muted-copy">{gift.model ? `Model ${gift.model}` : "Model not resolved yet"}</p>
+          {gift.collection_id && gift.collection_name && onOpenCollection ? (
+            <button className="scope-chip" onClick={() => onOpenCollection(gift.collection_id!, gift.collection_name!)}>
+              <Layers size={13} /> {gift.collection_name}
+            </button>
+          ) : (
+            <p className="muted-copy">{gift.name ?? "Series not resolved yet"}</p>
+          )}
           <div className="gift-hero-price">
             <strong>{formatTon(gift.floor_ton)}</strong>
             {change && <span className={rising ? "trend-up" : "trend-down"}>{change} · 24h</span>}

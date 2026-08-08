@@ -16,18 +16,18 @@ const MARKET_OPTIONS = [
   { value: "fragment", label: "Fragment" },
 ];
 
-export type CollectionFilter = { id: number; name: string };
+export type CollectionScope = { id: number; name: string } | null;
 
 function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
-  const title = gift.name ?? gift.canonical_id.slice(0, 18);
+  const title = gift.model ?? gift.name ?? gift.canonical_id.slice(0, 18);
   return (
     <button className="gift-card" onClick={() => onOpen(gift.id)}>
       <GiftImage src={gift.image_url} alt={title} />
       <div className="gift-card-body">
         <strong>{title}</strong>
-        <small>{[gift.model, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
+        <small>{[gift.collection_name ?? gift.name, gift.gift_number ? `#${gift.gift_number}` : null].filter(Boolean).join(" · ") || "model pending"}</small>
         <div className="gift-card-price">
           <span>{formatTon(gift.floor_ton)}</span>
           {change && <b className={rising ? "trend-up" : "trend-down"}>{change}</b>}
@@ -41,15 +41,7 @@ function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => vo
   );
 }
 
-export function Gifts({
-  onOpen,
-  collection,
-  onClearCollection,
-}: {
-  onOpen: (id: number) => void;
-  collection?: CollectionFilter | null;
-  onClearCollection?: () => void;
-}) {
+export function Gifts({ onOpen, collection, onClearCollection }: { onOpen: (id: number) => void; collection?: CollectionScope; onClearCollection?: () => void }) {
   const [items, setItems] = useState<GiftCardType[]>([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -106,9 +98,8 @@ export function Gifts({
         </span>
       </div>
       {collection && onClearCollection && (
-        <button className="filter-chip" onClick={onClearCollection}>
-          {collection.name}
-          <X size={13} />
+        <button className="scope-chip" onClick={onClearCollection}>
+          {collection.name} <X size={13} />
         </button>
       )}
       <form className="gift-search" onSubmit={submit}>
