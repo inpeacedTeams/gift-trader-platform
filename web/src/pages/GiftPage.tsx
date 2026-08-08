@@ -12,6 +12,7 @@ import { QuickAlert } from "../components/QuickAlert";
 import { RarityBadge, TraitGrid } from "../components/Rarity";
 import { SaleHistory } from "../components/SaleHistory";
 import { Verdict } from "../components/Verdict";
+import { Volatility } from "../components/Volatility";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
 import "../catalog-deals.css";
@@ -106,6 +107,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onO
       <TraitGrid gift={gift} />
       <Verdict giftId={gift.id} authenticated={authenticated} enabled={aiEnabled} />
       <Liquidity giftId={gift.id} />
+      <Volatility giftId={gift.id} />
       <FlipCalc floorTon={gift.floor_ton} medianTon={gift.median_ton} venues={gift.sources} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
