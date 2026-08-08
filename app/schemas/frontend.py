@@ -84,6 +84,35 @@ class GiftHistory(BaseModel):
     points: list[PricePoint]
 
 
+class TradeRecord(BaseModel):
+    """A sale that actually happened."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    marketplace: str
+    price_ton: Decimal
+    seller: str | None = None
+    buyer: str | None = None
+    traded_at: datetime
+
+
+class TradeStats(BaseModel):
+    window_days: int
+    sales_count: int = 0
+    lowest_ton: Decimal | None = None
+    highest_ton: Decimal | None = None
+    median_ton: Decimal | None = None
+    volume_ton: Decimal | None = None
+    last_sold_at: datetime | None = None
+
+
+class GiftTrades(BaseModel):
+    data_mode: str = "persisted"
+    gift_id: int
+    stats: TradeStats
+    items: list[TradeRecord]
+
+
 class Deal(BaseModel):
     """An active listing priced below the median of its own model."""
 
