@@ -25,6 +25,7 @@ import { Gifts, type CollectionFilter } from "./pages/Gifts";
 import { GiftPage } from "./pages/GiftPage";
 import { Opportunities } from "./pages/Opportunities";
 import { Positions } from "./pages/Positions";
+import { Research } from "./pages/Research";
 import { Selling } from "./pages/Selling";
 import { Sniper } from "./pages/Sniper";
 import { Watchlist } from "./pages/Watchlist";
@@ -33,7 +34,7 @@ import { Alerts } from "./pages/Alerts";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
-const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", analyst: "Analyst", opportunities: "Opportunities", sniper: "Sniper", watchlist: "Watchlist", positions: "Positions", selling: "Ваши лоты", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
+const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", analyst: "Analyst", research: "Поиск стратегий", opportunities: "Opportunities", sniper: "Sniper", watchlist: "Watchlist", positions: "Positions", selling: "Ваши лоты", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -116,6 +117,8 @@ export default function App() {
       <Deals onOpen={openGift} />
     ) : view === "analyst" ? (
       <Analyst enabled={aiEnabled} authenticated={Boolean(user)} />
+    ) : view === "research" ? (
+      <Research authenticated={Boolean(user)} aiEnabled={aiEnabled} />
     ) : view === "gifts" ? (
       selectedGift === null ? (
         <Gifts
