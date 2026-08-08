@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Plus, Radio, X } from "lucide-react";
-import { getEvents } from "../api";
+import { getEvents, RateLimited } from "../api";
 import type { MarketEvent } from "../types";
 import { GiftImage } from "./GiftImage";
 import { formatAgo, formatPercent, formatTon } from "../format";
@@ -26,8 +26,9 @@ function Icon({ type }: { type: string }) {
 
 /** Everything that changed since the last crawl, updating by itself.
  *
- * Polling with an id cursor rather than a socket: the sync runs on a timer
- * anyway, so a short poll is simpler and survives restarts without state.
+ * Polls with an id cursor. If the API asks us to slow down, the next poll
+ * waits as long as it says: a throttled client that keeps hammering only
+ * makes the throttling worse.
  */
 export function LiveFeed({ onOpen }: { onOpen: (giftId: number) => void }) {
   const [items, setItems] = useState<MarketEvent[]>([]);
@@ -38,7 +39,13 @@ export function LiveFeed({ onOpen }: { onOpen: (giftId: number) => void }) {
 
   useEffect(() => {
     let cancelled = false;
-    let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+    let timer: ReturnType<typeof setTimeout>;
+    let highlightTimer: ReturnType<typeof setTimeout>;
+
+    const schedule = (delay: number) => {
+      if (cancelled) return;
+      timer = setTimeout(() => void pull(), delay);
+    };
 
     const pull = async () => {
       try {
@@ -58,16 +65,18 @@ export function LiveFeed({ onOpen }: { onOpen: (giftId: number) => void }) {
           }
         }
         loaded.current = true;
-      } catch {
-        if (!cancelled) setLive(false);
+        schedule(POLL_MS);
+      } catch (error) {
+        if (cancelled) return;
+        setLive(false);
+        schedule(error instanceof RateLimited ? error.retryAfter * 1000 : POLL_MS * 2);
       }
     };
 
     void pull();
-    const timer = setInterval(() => void pull(), POLL_MS);
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
       clearTimeout(highlightTimer);
     };
   }, []);

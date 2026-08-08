@@ -3,6 +3,17 @@ import { clearToken, getToken, setToken, telegramInitData, type User } from "./a
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
 
+/** Thrown when the API asks us to slow down. Carries the wait in seconds. */
+export class RateLimited extends Error {
+  readonly retryAfter: number;
+
+  constructor(retryAfter: number) {
+    super(`Слишком много запросов. Повторите через ${retryAfter} с.`);
+    this.name = "RateLimited";
+    this.retryAfter = retryAfter;
+  }
+}
+
 /** Prefer the server's own explanation over a bare status code. */
 async function errorText(response: Response): Promise<string> {
   try {
@@ -14,7 +25,24 @@ async function errorText(response: Response): Promise<string> {
   return `API ${response.status}`;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const headers = new Headers(init.headers); headers.set("Accept", "application/json"); if (init.body) headers.set("Content-Type", "application/json"); const token = getToken(); if (token) headers.set("Authorization", `Bearer ${token}`); const response = await fetch(`${base}${path}`, { ...init, headers }); if (response.status === 401) { clearToken(); throw new Error("Authentication required"); } if (!response.ok) throw new Error(await errorText(response)); if (response.status === 204) return undefined as T; return response.json() as Promise<T>; }
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (init.body) headers.set("Content-Type", "application/json");
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${base}${path}`, { ...init, headers });
+  if (response.status === 401) {
+    clearToken();
+    throw new Error("Authentication required");
+  }
+  if (response.status === 429) {
+    throw new RateLimited(Number(response.headers.get("Retry-After") ?? 5));
+  }
+  if (!response.ok) throw new Error(await errorText(response));
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
 export type WalletItem = { id: number; address: string; label?: string | null; created_at?: string };
 export type PortfolioNft = { nft_address: string; name?: string | null; image_url?: string | null; estimated_price_ton?: string | null; valuation_source: string; valuation_confidence?: string | null };
 export type PortfolioWallet = { wallet_id: number; address: string; label?: string | null; ton_balance: string; nfts: PortfolioNft[] };
@@ -147,5 +175,3 @@ export const getGiftHistory = (giftId: number, marketplace?: string) =>
   request<GiftHistory>(`/gifts/${giftId}/history${marketplace ? `?marketplace=${encodeURIComponent(marketplace)}` : ""}`);
 export const getGiftTrades = (giftId: number, limit = 20) =>
   request<GiftTrades>(`/gifts/${giftId}/trades?limit=${limit}`);
-export const triggerMarketSync = () => request<{ status: string; job: string }>("/jobs/market-sync", { method: "POST" });
-export const triggerTradeSync = () => request<{ status: string; job: string }>("/jobs/trade-sync", { method: "POST" });
