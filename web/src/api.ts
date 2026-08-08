@@ -10,6 +10,8 @@ export type PortfolioOverview = { data_mode: string; total_assets: number; value
 export type PortfolioPoint = { observed_at: string; total_ton: string; ton_balance: string; nft_value_ton: string; asset_count: number };
 export type AlertRule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
 export type AlertEvent = { id: number; message: string; is_read: boolean; created_at: string };
+export type AiStatus = { enabled: boolean; model?: string | null };
+export type AiAnswer = { answer: string; model: string; grounded_in: string; remaining_today?: number | null };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
 export const getMarkets = (collections: string[] = []) => request<MarketResponse>(`/markets/snapshots${collections.length ? `?${collections.map(c => `collection=${encodeURIComponent(c)}`).join("&")}` : ""}`); export const getArbitrage = (minimum = 0) => request<ArbitrageResponse>(`/arbitrage?min_profit_percent=${minimum}`); export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
@@ -17,6 +19,14 @@ export const getWatchlist = () => request<{ items: { id: number; gift_id: number
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
 export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules"); export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) }); export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) }); export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" }); export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events"); export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
+
+export const getAiStatus = () => request<AiStatus>("/ai/status");
+export const askAssistant = (question: string, giftId?: number) =>
+  request<AiAnswer>("/ai/ask", {
+    method: "POST",
+    body: JSON.stringify({ question, ...(giftId ? { gift_id: giftId } : {}) }),
+  });
+export const getAiVerdict = (giftId: number) => request<AiAnswer>(`/ai/gifts/${giftId}/verdict`);
 
 export const getCollections = (options: { page?: number; pageSize?: number; search?: string } = {}) => {
   const params = new URLSearchParams();

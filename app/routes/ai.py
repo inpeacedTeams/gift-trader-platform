@@ -24,6 +24,7 @@ class AiAnswer(BaseModel):
     answer: str
     model: str
     grounded_in: str = "persisted market data"
+    remaining_today: int | None = None
 
 
 class AiStatus(BaseModel):
@@ -36,6 +37,13 @@ def _client() -> OpenRouterClient:
     if not client.configured:
         raise HTTPException(503, "AI is not configured: set OPENROUTER_API_KEY")
     return client
+
+
+def _spend(user: User) -> int:
+    """Charge one request against the user's budget, or refuse."""
+    if not limiter.allow(user.id):
+        raise HTTPException(429, "AI request limit reached, try again later")
+    return limiter.remaining(user.id)
 
 
 @router.get("/status", response_model=AiStatus)
@@ -54,8 +62,7 @@ async def ask(
 ):
     """Answer a market question using stored data only."""
     client = _client()
-    if not limiter.allow(user.id):
-        raise HTTPException(429, "AI request limit reached for this hour")
+    remaining = _spend(user)
     context = await market_overview(session)
     if body.gift_id is not None:
         focus = await gift_context(session, body.gift_id)
@@ -66,7 +73,7 @@ async def ask(
         reply = await client.complete(system=ASK_PROMPT, user=prompt)
     except AiUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
-    return AiAnswer(answer=reply.content, model=reply.model)
+    return AiAnswer(answer=reply.content, model=reply.model, remaining_today=remaining)
 
 
 @router.get("/gifts/{gift_id}/verdict", response_model=AiAnswer)
@@ -77,11 +84,10 @@ async def verdict(
 ):
     """A short read on whether this gift is worth buying at the current floor."""
     client = _client()
-    if not limiter.allow(user.id):
-        raise HTTPException(429, "AI request limit reached for this hour")
     context = await gift_context(session, gift_id)
     if context is None:
         raise HTTPException(404, "Gift not found")
+    remaining = _spend(user)
     try:
         reply = await client.complete(
             system=VERDICT_PROMPT,
@@ -90,4 +96,4 @@ async def verdict(
         )
     except AiUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
-    return AiAnswer(answer=reply.content, model=reply.model)
+    return AiAnswer(answer=reply.content, model=reply.model, remaining_today=remaining)
