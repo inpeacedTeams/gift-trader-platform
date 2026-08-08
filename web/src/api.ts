@@ -214,6 +214,90 @@ export type GiftVolatility = {
   label: string;
 };
 
+/** Strategy research.
+ *
+ * Every figure in `StrategyMetrics` is computed by our backtest engine over
+ * stored history. No model produces a number here: the assistant can only
+ * propose a rule set or describe a result that was already measured.
+ */
+export type StrategyFilters = {
+  collection_id?: number | null;
+  marketplaces: string[];
+  min_price_ton?: number | null;
+  max_price_ton?: number | null;
+  min_discount_percent?: number | null;
+  max_rarity_percent?: number | null;
+  max_hours_to_sell?: number | null;
+  min_closed_listings?: number | null;
+};
+export type Strategy = {
+  name: string;
+  filters: StrategyFilters;
+  hold_hours: number;
+  exit_at: "floor" | "median";
+  require_sold: boolean;
+};
+export type StrategyMetrics = {
+  trades: number;
+  wins: number;
+  win_rate?: number | null;
+  median_profit_percent?: number | null;
+  mean_profit_percent?: number | null;
+  total_profit_ton: number;
+  median_hold_hours?: number | null;
+  best_percent?: number | null;
+  worst_percent?: number | null;
+  /** Entries whose exit falls past the end of our history. Not wins, not losses. */
+  unresolved: number;
+};
+export type SimulatedTrade = {
+  gift_id: number;
+  gift_name?: string | null;
+  marketplace: string;
+  entry_at: string;
+  entry_price: number;
+  exit_price: number;
+  profit_ton: number;
+  profit_percent: number;
+  sold: boolean;
+};
+export type Backtest = {
+  status: string;
+  reason?: string | null;
+  strategy: Strategy;
+  summary: string;
+  conditions: string[];
+  window_days: number;
+  history_days: number;
+  overall: StrategyMetrics;
+  in_sample: StrategyMetrics;
+  out_of_sample: StrategyMetrics;
+  /** True only when the half the rule was not selected on also pays. */
+  holds_up: boolean;
+  examples: SimulatedTrade[];
+};
+export type DiscoveryResult = {
+  status: string;
+  reason?: string | null;
+  tested: number;
+  window_days: number;
+  history_days: number;
+  results: Backtest[];
+};
+export type SavedStrategy = {
+  id: number;
+  name: string;
+  source: string;
+  summary: string;
+  conditions: string[];
+  definition: Strategy;
+  created_at: string;
+  last_trades?: number | null;
+  last_median_percent?: number | null;
+  last_out_of_sample_percent?: number | null;
+  last_holds_up?: boolean | null;
+};
+
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
 export const getArbitrage = (minPercent = 0, limit = 50) =>
@@ -248,6 +332,43 @@ export const getGiftLiquidity = (giftId: number) =>
  *  short enough that last month's regime does not pollute today's answer. */
 export const getGiftVolatility = (giftId: number, windowDays = 14) =>
   request<GiftVolatility>(`/volatility/gifts/${giftId}?window_days=${windowDays}`);
+
+/** Research. `discover` and `backtest` never touch a model; `propose` uses one
+ *  to pick thresholds and `explain` to put a measured result into words. */
+export const discoverStrategies = (windowDays = 30, collectionId?: number) => {
+  const params = new URLSearchParams({ window_days: String(windowDays) });
+  if (collectionId) params.set("collection_id", String(collectionId));
+  return request<DiscoveryResult>(`/research/discover?${params.toString()}`, { method: "POST" });
+};
+export const backtestStrategy = (strategy: Strategy, windowDays = 30) =>
+  request<Backtest>("/research/backtest", {
+    method: "POST",
+    body: JSON.stringify({ strategy, window_days: windowDays }),
+  });
+export const proposeStrategy = (question: string, windowDays = 30) =>
+  request<{ strategy: Strategy; backtest: Backtest }>("/research/propose", {
+    method: "POST",
+    body: JSON.stringify({ request: question, window_days: windowDays }),
+  });
+export const explainStrategy = (strategy: Strategy, windowDays = 30) =>
+  request<{ explanation: string; model: string; backtest: Backtest }>("/research/explain", {
+    method: "POST",
+    body: JSON.stringify({ strategy, window_days: windowDays }),
+  });
+export const getSavedStrategies = () => request<SavedStrategy[]>("/research/strategies");
+export const saveStrategy = (strategy: Strategy, source: string, windowDays = 30) =>
+  request<SavedStrategy>(`/research/strategies?window_days=${windowDays}`, {
+    method: "POST",
+    body: JSON.stringify({ strategy, source }),
+  });
+export const deleteStrategy = (strategyId: number) =>
+  request(`/research/strategies/${strategyId}`, { method: "DELETE" });
+/** Turn a researched rule into a live watch. `dropped` names every condition
+ *  the fast loop cannot enforce, because a looser armed rule is a trap. */
+export const armStrategy = (strategyId: number) =>
+  request<{ watch_id: number; dropped: string[] }>(`/research/strategies/${strategyId}/arm`, {
+    method: "POST",
+  });
 
 /** Selling: the same market, seen from behind your own listings. */
 export const getMyListings = () => request<SellingPage>("/selling/listings");
