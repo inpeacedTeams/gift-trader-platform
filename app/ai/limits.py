@@ -5,8 +5,9 @@ from collections import defaultdict, deque
 class RateLimiter:
     """Per user sliding window.
 
-    The OpenRouter key is ours, so one enthusiastic user must not be able to
-    drain the shared quota for everyone else.
+    The OpenRouter key is ours, so an unbounded endpoint is an unbounded
+    bill. In memory is enough for a single instance; move to Redis when
+    the API runs on more than one process.
     """
 
     def __init__(self, limit: int, window_seconds: int = 3600):
@@ -14,15 +15,34 @@ class RateLimiter:
         self.window = window_seconds
         self._hits: dict[int, deque[float]] = defaultdict(deque)
 
-    def allow(self, user_id: int) -> bool:
+    def check(self, user_id: int) -> tuple[bool, int]:
+        """Returns whether the call is allowed and how many remain."""
         now = time.monotonic()
         hits = self._hits[user_id]
         while hits and now - hits[0] > self.window:
             hits.popleft()
         if len(hits) >= self.limit:
-            return False
+            return False, 0
         hits.append(now)
-        return True
+        return True, self.limit - len(hits)
 
-    def remaining(self, user_id: int) -> int:
-        return max(0, self.limit - len(self._hits[user_id]))
+
+class TTLCache:
+    """Tiny time based cache so repeated views do not re-bill the same answer."""
+
+    def __init__(self, ttl_seconds: int):
+        self.ttl = ttl_seconds
+        self._store: dict[str, tuple[float, str]] = {}
+
+    def get(self, key: str) -> str | None:
+        entry = self._store.get(key)
+        if entry is None:
+            return None
+        stored_at, value = entry
+        if time.monotonic() - stored_at > self.ttl:
+            del self._store[key]
+            return None
+        return value
+
+    def set(self, key: str, value: str) -> None:
+        self._store[key] = (time.monotonic(), value)
