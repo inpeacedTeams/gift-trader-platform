@@ -20,8 +20,30 @@ export type PortfolioNft = { nft_address: string; name?: string | null; image_ur
 export type PortfolioWallet = { wallet_id: number; address: string; label?: string | null; ton_balance: string; nfts: PortfolioNft[] };
 export type PortfolioOverview = { data_mode: string; total_assets: number; valued_assets: number; unvalued_assets: number; estimated_nft_value_ton: string; wallets: PortfolioWallet[]; unavailable: { wallet_id: number; address: string; error: string }[] };
 export type PortfolioPoint = { observed_at: string; total_ton: string; ton_balance: string; nft_value_ton: string; asset_count: number };
-export type AlertRule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
-export type AlertEvent = { id: number; message: string; is_read: boolean; created_at: string };
+
+/** Gift labels ride along so the UI never has to print a bare id. */
+export type GiftLabel = {
+  gift_name?: string | null;
+  gift_model?: string | null;
+  gift_image_url?: string | null;
+};
+export type AlertRule = GiftLabel & {
+  id: number;
+  gift_id?: number | null;
+  rule_type: string;
+  threshold: string;
+  is_active: boolean;
+  created_at?: string;
+};
+export type AlertEvent = GiftLabel & {
+  id: number;
+  rule_id?: number | null;
+  gift_id?: number | null;
+  message: string;
+  observed_value?: string | null;
+  is_read: boolean;
+  created_at: string;
+};
 export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit?: number };
 export type AiAnswer = { answer: string; model: string; grounded_in?: string; remaining?: number; cached?: boolean };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
@@ -37,7 +59,12 @@ export const getSourceStatus = () => request<SourceStatusList>("/sources/status"
 
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
-export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules"); export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) }); export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) }); export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" }); export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events"); export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
+export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules");
+export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) });
+export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) });
+export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" });
+export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events");
+export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
 
 // AI analyst. The key stays on the server, the browser only talks to us.
 export const getAiStatus = () => request<AiStatus>("/ai/status");
