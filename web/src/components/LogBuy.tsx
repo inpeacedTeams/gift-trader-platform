@@ -34,7 +34,7 @@ export function LogBuy({ giftId, floorTon, venue, authenticated = false }: Props
       await openPosition({
         gift_id: giftId,
         buy_price_ton: price,
-        ...(market ? { marketplace: market } : {}),
+        ...(market ? { buy_marketplace: market } : {}),
       });
       setSaved(true);
       setOpen(false);

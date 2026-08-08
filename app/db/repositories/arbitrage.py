@@ -4,17 +4,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Collection, Gift, Listing
+from app.market.economics import (
+    DEFAULT_FEES,
+    DEFAULT_GAS_TON,
+    DEFAULT_SELL_FEE,
+    net_proceeds,
+)
 
-# Seller side fees. Buying is the listed price, selling gives back less.
-DEFAULT_FEES = {
-    "tonnel": Decimal("5"),
-    "getgems": Decimal("5"),
-    "portals": Decimal("5"),
-    "fragment": Decimal("5"),
-    "mrkt": Decimal("5"),
-}
-# Network cost of moving the gift between venues.
-DEFAULT_GAS_TON = Decimal("0.1")
+# Re-exported: several call sites import the fee table from here.
+__all__ = ["ArbitrageRepository", "DEFAULT_FEES", "DEFAULT_GAS_TON", "DEFAULT_SELL_FEE"]
 
 
 class ArbitrageRepository:
@@ -30,7 +28,9 @@ class ArbitrageRepository:
         self.fees = fees or DEFAULT_FEES
 
     def _net_sale(self, marketplace: str, price: Decimal) -> Decimal:
-        fee = self.fees.get(marketplace, Decimal("5"))
+        if self.fees is DEFAULT_FEES:
+            return net_proceeds(marketplace, price)
+        fee = self.fees.get(marketplace, DEFAULT_SELL_FEE)
         return price - price * fee / Decimal(100)
 
     async def opportunities(
