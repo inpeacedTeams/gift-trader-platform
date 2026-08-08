@@ -130,7 +130,12 @@ export default function App() {
           onToggleWatchlist={(giftId, saved) => void toggleWatchlist(giftId, saved)}
         />
       ) : (
-        <GiftPage giftId={selectedGift} onBack={() => setSelectedGift(null)} onOpenCollection={openCollection} />
+        <GiftPage
+          giftId={selectedGift}
+          onBack={() => setSelectedGift(null)}
+          authenticated={Boolean(user)}
+          onOpenCollection={openCollection}
+        />
       )
     ) : view === "opportunities" ? (
       <Opportunities items={opportunities} />

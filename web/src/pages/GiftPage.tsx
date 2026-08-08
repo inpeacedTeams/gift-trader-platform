@@ -5,6 +5,7 @@ import type { GiftDetail, PricePoint } from "../types";
 import { ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
 import { PriceChart } from "../components/PriceChart";
+import { QuickAlert } from "../components/QuickAlert";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
 import "../catalog-deals.css";
@@ -12,10 +13,11 @@ import "../catalog-deals.css";
 type Props = {
   giftId: number;
   onBack: () => void;
+  authenticated?: boolean;
   onOpenCollection?: (collection: { id: number; name?: string | null; chain_address: string }) => void;
 };
 
-export function GiftPage({ giftId, onBack, onOpenCollection }: Props) {
+export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollection }: Props) {
   const [gift, setGift] = useState<GiftDetail | null>(null);
   const [points, setPoints] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,7 @@ export function GiftPage({ giftId, onBack, onOpenCollection }: Props) {
           </div>
         </div>
       </div>
+      <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">
           <span>Floor</span>
