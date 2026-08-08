@@ -6,18 +6,22 @@ from pydantic import BaseModel, ConfigDict
 
 class CollectionCard(BaseModel):
     id: int
-    name: str
+    name: str | None = None
     slug: str | None = None
-    chain_address: str | None = None
+    chain_address: str
     gift_count: int = 0
     listings_count: int = 0
     floor_ton: Decimal | None = None
     image_url: str | None = None
 
 
-class CollectionList(BaseModel):
+class CollectionPage(BaseModel):
     data_mode: str = "persisted"
     items: list[CollectionCard]
+    page: int
+    page_size: int
+    total: int
+    has_next: bool
 
 
 class GiftCard(BaseModel):
@@ -33,6 +37,7 @@ class GiftCard(BaseModel):
     median_ton: Decimal | None = None
     listings_count: int = 0
     change_percent: Decimal | None = None
+    best_marketplace: str | None = None
 
 
 class GiftPage(BaseModel):

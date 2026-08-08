@@ -20,6 +20,8 @@ class GiftRepository:
         marketplace: str | None,
         collection_id: int | None,
         model: str | None,
+        min_price: Decimal | None,
+        max_price: Decimal | None,
         active_only: bool,
     ) -> Select:
         """Gift rows with market aggregates taken from currently active listings.
@@ -30,10 +32,11 @@ class GiftRepository:
         listing_join = (Listing.gift_id == Gift.id) & Listing.active.is_(True)
         if marketplace:
             listing_join = listing_join & (Listing.marketplace == marketplace)
+        floor = func.min(Listing.price_ton)
         statement = (
             select(
                 Gift,
-                func.min(Listing.price_ton).label("floor_ton"),
+                floor.label("floor_ton"),
                 func.percentile_cont(0.5)
                 .within_group(Listing.price_ton.asc())
                 .label("median_ton"),
@@ -55,6 +58,10 @@ class GiftRepository:
             )
         if marketplace:
             statement = statement.having(func.count(Listing.id) > 0)
+        if min_price is not None:
+            statement = statement.having(floor >= min_price)
+        if max_price is not None:
+            statement = statement.having(floor <= max_price)
         return statement
 
     @staticmethod
@@ -69,29 +76,29 @@ class GiftRepository:
             return statement.order_by(depth.desc(), Gift.id.desc())
         return statement.order_by(Gift.id.desc())
 
+    async def best_venues(self, gift_ids: list[int]) -> dict[int, str]:
+        """Marketplace holding the cheapest active listing for each gift."""
+        if not gift_ids:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(Listing.gift_id, Listing.marketplace)
+                .where(Listing.gift_id.in_(gift_ids), Listing.active.is_(True))
+                .distinct(Listing.gift_id)
+                .order_by(Listing.gift_id, Listing.price_ton.asc())
+            )
+        ).all()
+        return {gift_id: marketplace for gift_id, marketplace in rows}
+
     async def changes(self, gift_ids: list[int], hours: int = 24) -> dict[int, Decimal]:
         """Percent move of the floor over the window, batched for the whole page."""
         if not gift_ids:
             return {}
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
-        rows = (
-            await self.session.execute(
-                select(
-                    PriceSnapshot.gift_id,
-                    func.min(PriceSnapshot.observed_at).label("first_at"),
-                    func.max(PriceSnapshot.observed_at).label("last_at"),
-                )
-                .where(PriceSnapshot.gift_id.in_(gift_ids), PriceSnapshot.observed_at >= since)
-                .group_by(PriceSnapshot.gift_id)
-            )
-        ).all()
-        if not rows:
-            return {}
-        bounds = {row.gift_id: (row.first_at, row.last_at) for row in rows}
         points = (
             await self.session.execute(
                 select(PriceSnapshot.gift_id, PriceSnapshot.observed_at, PriceSnapshot.floor_ton).where(
-                    PriceSnapshot.gift_id.in_(list(bounds)),
+                    PriceSnapshot.gift_id.in_(gift_ids),
                     PriceSnapshot.observed_at >= since,
                     PriceSnapshot.floor_ton.is_not(None),
                 )
@@ -120,6 +127,8 @@ class GiftRepository:
         marketplace: str | None = None,
         collection_id: int | None = None,
         model: str | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
         sort: str = "recent",
         active_only: bool = True,
     ):
@@ -128,6 +137,8 @@ class GiftRepository:
             marketplace=marketplace,
             collection_id=collection_id,
             model=model,
+            min_price=min_price,
+            max_price=max_price,
             active_only=active_only,
         )
         total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
@@ -136,14 +147,16 @@ class GiftRepository:
                 self._ordered(base, sort).offset((page - 1) * page_size).limit(page_size)
             )
         ).all()
-        changes = await self.changes([row[0].id for row in rows])
+        gift_ids = [row[0].id for row in rows]
+        changes = await self.changes(gift_ids)
+        venues = await self.best_venues(gift_ids)
         if sort in ("change_desc", "change_asc"):
             rows = sorted(
                 rows,
                 key=lambda row: changes.get(row[0].id, Decimal(0)),
                 reverse=sort == "change_desc",
             )
-        return rows, int(total or 0), changes
+        return rows, int(total or 0), changes, venues
 
     async def models(self, collection_id: int | None = None) -> list[str]:
         statement = select(Gift.model).where(Gift.model.is_not(None), Gift.is_active.is_(True))

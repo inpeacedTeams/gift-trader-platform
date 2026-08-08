@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,17 +20,21 @@ async def gifts(
     marketplace: str | None = None,
     collection_id: int | None = Query(default=None, ge=1),
     model: str | None = None,
+    min_price: Decimal | None = Query(default=None, ge=0),
+    max_price: Decimal | None = Query(default=None, ge=0),
     sort: str = Query(default="recent", pattern=f"^({'|'.join(SORTS)})$"),
     session: AsyncSession = Depends(get_session),
 ):
     repository = GiftRepository(session)
-    rows, total, changes = await repository.page(
+    rows, total, changes, venues = await repository.page(
         page=page,
         page_size=page_size,
         search=search,
         marketplace=marketplace,
         collection_id=collection_id,
         model=model,
+        min_price=min_price,
+        max_price=max_price,
         sort=sort,
     )
     names: dict[int, str | None] = {}
@@ -50,6 +56,7 @@ async def gifts(
                 median_ton=median_ton,
                 listings_count=listings_count,
                 change_percent=changes.get(gift.id),
+                best_marketplace=venues.get(gift.id),
             )
         )
     return GiftPage(items=items, page=page, page_size=page_size, total=total, has_next=page * page_size < total)
@@ -70,8 +77,8 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
     if result is None:
         raise HTTPException(status_code=404, detail="Gift not found")
     gift, listings = result
-    active = [item for item in listings if item.active]
-    prices = sorted(item.price_ton for item in active)
+    active = sorted([item for item in listings if item.active], key=lambda item: item.price_ton)
+    prices = [item.price_ton for item in active]
     changes = await repository.changes([gift_id])
     return GiftDetail(
         id=gift.id,
@@ -86,6 +93,7 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         median_ton=prices[len(prices) // 2] if prices else None,
         listings_count=len(active),
         change_percent=changes.get(gift_id),
+        best_marketplace=active[0].marketplace if active else None,
         listings=[GiftListing.model_validate(item) for item in listings],
         sources=sorted({item.marketplace for item in active}),
     )
