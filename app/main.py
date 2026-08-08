@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.core.security import verify_secrets
 from app.notifications.delivery import deliver_pending_alerts
 from app.portfolio.sync import sync_portfolios
 from app.routes.ai import router as ai_router
@@ -36,6 +37,9 @@ class ServiceStatus(BaseModel):
 
 
 settings = get_settings()
+# Fails fast in production rather than serving forgeable tokens.
+verify_secrets(settings)
+
 market_scheduler = MarketScheduler(sync_market, settings.market_sync_interval_seconds)
 trade_scheduler = MarketScheduler(sync_trades, settings.trade_sync_interval_seconds)
 portfolio_scheduler = MarketScheduler(sync_portfolios, settings.portfolio_sync_interval_seconds)
@@ -65,7 +69,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Accept", "Content-Type", "Authorization"],
+    allow_headers=["Accept", "Content-Type", "Authorization", "X-Admin-Token"],
 )
 for router in (
     overview_router,
