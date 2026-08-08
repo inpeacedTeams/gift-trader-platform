@@ -17,10 +17,12 @@ type Props = {
   giftId: number;
   onBack: () => void;
   authenticated?: boolean;
+  /** Passed down so the page does not re-ask for AI status on every open. */
+  aiEnabled?: boolean;
   onOpenCollection?: (collection: { id: number; name?: string | null; chain_address: string }) => void;
 };
 
-export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollection }: Props) {
+export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onOpenCollection }: Props) {
   const [gift, setGift] = useState<GiftDetail | null>(null);
   const [points, setPoints] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollecti
           </div>
         </div>
       </div>
-      <Verdict giftId={gift.id} authenticated={authenticated} />
+      <Verdict giftId={gift.id} authenticated={authenticated} enabled={aiEnabled} />
       <Liquidity giftId={gift.id} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
