@@ -1,0 +1,37 @@
+/* Source health. Colour carries the state, text explains it. */
+.setting-line > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.source-meta {
+  color: #6f7d8e;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.source-live {
+  color: #83e7b3;
+  font: 10px "DM Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+.source-optional {
+  color: #e8c07d;
+  font: 10px "DM Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+.source-down {
+  color: #f2687a;
+  font: 10px "DM Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+.source-muted {
+  color: #6f7d8e;
+  font: 10px "DM Mono", monospace;
+  letter-spacing: 0.08em;
+}

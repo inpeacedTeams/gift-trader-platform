@@ -5,6 +5,18 @@ export type Opportunity = { gift_key: string; buy_marketplace: Marketplace; sell
 export type MarketResponse = { data_mode: "live-only"; markets: Snapshot[] };
 export type ArbitrageResponse = { data_mode: "live-only"; opportunities: Opportunity[]; unavailable: { marketplace: string; reason: string }[] };
 
+export type SourceStatusCard = {
+  marketplace: string;
+  status: string;
+  configured: boolean;
+  stale: boolean;
+  listings_count: number;
+  last_attempt_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+};
+export type SourceStatusList = { data_mode: string; sources: SourceStatusCard[] };
+
 export type CollectionCard = {
   id: number;
   name?: string | null;
@@ -34,6 +46,8 @@ export type GiftCard = {
   deal_percent?: string | null;
 };
 export type GiftPage = { data_mode: string; items: GiftCard[]; page: number; page_size: number; total: number; has_next: boolean };
+export type WatchlistCard = GiftCard & { saved_at: string };
+export type WatchlistPage = { data_mode: string; items: WatchlistCard[] };
 export type GiftListing = {
   id: number;
   marketplace: string;
