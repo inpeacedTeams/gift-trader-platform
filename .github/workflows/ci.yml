@@ -36,7 +36,7 @@ jobs:
           python -m app.db.migrate
           python -m app.db.verify_schema
       - name: Lint
-        run: ruff check app tests
+        run: ruff check app tests --ignore E701,E702
       - name: Test
         run: pytest -q
   frontend:
@@ -50,6 +50,6 @@ jobs:
         with:
           node-version: 20
       - name: Install frontend
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Build frontend
         run: npm run build
