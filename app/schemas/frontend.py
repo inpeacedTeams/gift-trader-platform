@@ -24,6 +24,44 @@ class CollectionPage(BaseModel):
     has_next: bool
 
 
+class OverviewStats(BaseModel):
+    """Dashboard headline numbers, counted in the database."""
+
+    data_mode: str = "persisted"
+    active_listings: int = 0
+    listed_gifts: int = 0
+    tracked_gifts: int = 0
+    collections: int = 0
+    market_value_ton: Decimal | None = None
+    sources_online: int = 0
+    events_24h: int = 0
+    sales_24h: int = 0
+    last_sync_at: datetime | None = None
+
+
+class ArbitrageOpportunity(BaseModel):
+    """Same gift, two venues, priced apart by more than the fees."""
+
+    gift_id: int
+    name: str | None = None
+    model: str | None = None
+    image_url: str | None = None
+    collection_name: str | None = None
+    buy_marketplace: str
+    sell_marketplace: str
+    buy_price_ton: Decimal
+    sell_price_ton: Decimal
+    buy_url: str | None = None
+    sell_url: str | None = None
+    profit_ton: Decimal
+    profit_percent: Decimal
+
+
+class ArbitrageList(BaseModel):
+    data_mode: str = "persisted"
+    items: list[ArbitrageOpportunity]
+
+
 class GiftCard(BaseModel):
     id: int
     canonical_id: str
