@@ -8,11 +8,21 @@ from pydantic import HttpUrl
 from .base import MarketParser
 from .http import MarketHttp
 from .models import Listing, MarketSnapshot, SourceUnavailable
+from .rarity import split_rarity
 
 NANOTON = Decimal(1_000_000_000)
 PAGE_LIMIT = 100
 # Enough for a 20k item collection; a stop that only triggers on a broken cursor.
 HARD_PAGE_CAP = 200
+# Trait names as they appear on chain, mapped onto the three slots we price.
+TRAIT_SLOTS = {
+    "model": "model",
+    "backdrop": "backdrop",
+    "background": "backdrop",
+    "symbol": "symbol",
+    "pattern": "symbol",
+}
+SLOTS = ("model", "backdrop", "symbol")
 
 
 class GetGemsParser(MarketParser):
@@ -57,6 +67,27 @@ class GetGemsParser(MarketParser):
             return None
         return value if value > 0 else None
 
+    @staticmethod
+    def _traits(metadata: dict[str, Any]) -> dict[str, tuple[str | None, Decimal | None]]:
+        """Pull model, backdrop and symbol out of on chain metadata.
+
+        Gift metadata keeps attributes in a trait list, not as top level keys,
+        which is why reading metadata['model'] directly always came back empty.
+        """
+        traits: dict[str, tuple[str | None, Decimal | None]] = {}
+        entries = metadata.get("attributes")
+        if isinstance(entries, list):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                label = str(entry.get("trait_type") or entry.get("name") or "").strip().lower()
+                slot = TRAIT_SLOTS.get(label)
+                if slot and slot not in traits:
+                    traits[slot] = split_rarity(entry.get("value"))
+        for slot in SLOTS:
+            traits.setdefault(slot, split_rarity(metadata.get(slot)))
+        return traits
+
     async def _items(self, address: str) -> AsyncIterator[tuple[str, dict[str, Any]]]:
         source = f"{self.tonapi_base}/v2/nfts/collections/{address}/items"
         for page in range(self.max_pages):
@@ -96,6 +127,7 @@ class GetGemsParser(MarketParser):
                 metadata = item.get("metadata") or {}
                 collection = item.get("collection") or {}
                 owner = sale.get("owner") or {}
+                traits = self._traits(metadata)
                 listings.append(
                     Listing(
                         marketplace="getgems",
@@ -106,7 +138,12 @@ class GetGemsParser(MarketParser):
                         collection_name=collection.get("name")
                         or metadata.get("collection_name"),
                         name=metadata.get("name"),
-                        model=metadata.get("model"),
+                        model=traits["model"][0],
+                        model_rarity=traits["model"][1],
+                        backdrop=traits["backdrop"][0],
+                        backdrop_rarity=traits["backdrop"][1],
+                        symbol=traits["symbol"][0],
+                        symbol_rarity=traits["symbol"][1],
                         image_url=HttpUrl(str(metadata["image"]))
                         if metadata.get("image")
                         else None,

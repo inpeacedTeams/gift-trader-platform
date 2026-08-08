@@ -7,7 +7,8 @@ from pydantic import HttpUrl
 from .base import MarketParser
 from .http import MarketHttp
 from .models import Listing, MarketSnapshot, SourceUnavailable
-from .tonnel import gift_slug, strip_rarity
+from .rarity import split_rarity
+from .tonnel import gift_slug
 
 DEFAULT_BASE = "https://api.tgmrkt.io/api/v1"
 NANOTON = Decimal(1_000_000_000)
@@ -96,9 +97,10 @@ class MrktParser(MarketParser):
         return value if value > 0 else None
 
     @staticmethod
-    def _attribute(row: dict[str, Any], key: str) -> str | None:
+    def _attribute(row: dict[str, Any], key: str) -> tuple[str | None, Decimal | None]:
+        """Attribute name and rarity, whichever spelling the payload uses."""
         value = row.get(key) or row.get(f"{key}Name")
-        return strip_rarity(value) if value else None
+        return split_rarity(value)
 
     def _listing(self, row: dict[str, Any], now: datetime) -> Listing | None:
         price = self._price_ton(row)
@@ -122,6 +124,9 @@ class MrktParser(MarketParser):
             if slug and gift_number is not None
             else "https://t.me/mrkt"
         )
+        model, model_rarity = self._attribute(row, "model")
+        backdrop, backdrop_rarity = self._attribute(row, "backdrop")
+        symbol, symbol_rarity = self._attribute(row, "symbol")
         return Listing(
             marketplace="mrkt",
             listing_id=listing_id,
@@ -130,7 +135,12 @@ class MrktParser(MarketParser):
             collection_name=name,
             gift_number=gift_number,
             name=name,
-            model=self._attribute(row, "model"),
+            model=model,
+            model_rarity=model_rarity,
+            backdrop=backdrop,
+            backdrop_rarity=backdrop_rarity,
+            symbol=symbol,
+            symbol_rarity=symbol_rarity,
             image_url=HttpUrl(str(image)) if image else None,
             price_ton=price,
             url=HttpUrl(url),

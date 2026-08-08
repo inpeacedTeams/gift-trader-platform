@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field, HttpUrl
 
 Marketplace = Literal["fragment", "portals", "getgems", "tonnel", "mrkt", "tonapi"]
 
+# A rarity share is a percentage of the collection: 0 is impossible, 100 means
+# every gift has it. Anything else is a parsing accident and gets rejected.
+RarityPercent = Field(default=None, gt=0, le=100)
+
 
 class Listing(BaseModel):
     marketplace: Marketplace
@@ -17,6 +21,11 @@ class Listing(BaseModel):
     gift_number: int | None = Field(default=None, ge=0)
     name: str | None = None
     model: str | None = None
+    model_rarity: Decimal | None = RarityPercent
+    backdrop: str | None = None
+    backdrop_rarity: Decimal | None = RarityPercent
+    symbol: str | None = None
+    symbol_rarity: Decimal | None = RarityPercent
     image_url: HttpUrl | None = None
     price_ton: Decimal = Field(gt=0)
     url: HttpUrl | None = None

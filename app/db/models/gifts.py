@@ -19,11 +19,23 @@ class Gift(Base):
     gift_number: Mapped[int | None] = mapped_column()
     name: Mapped[str | None] = mapped_column(String(255))
     model: Mapped[str | None] = mapped_column(String(255))
+    # Share of the collection carrying each trait, as published by the source.
+    # NULL means unknown, which is not the same as common.
+    model_rarity: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+    backdrop: Mapped[str | None] = mapped_column(String(255))
+    backdrop_rarity: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+    symbol: Mapped[str | None] = mapped_column(String(255))
+    symbol_rarity: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+    # Bucket of the scarcest trait, so peers are compared like for like.
+    rarity_tier: Mapped[str | None] = mapped_column(String(16))
     metadata_uri: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     collection: Mapped[Collection | None] = relationship(back_populates="gifts")
     listings: Mapped[list["Listing"]] = relationship(back_populates="gift")
-    __table_args__ = (Index("ix_gifts_collection_number", "collection_id", "gift_number"),)
+    __table_args__ = (
+        Index("ix_gifts_collection_number", "collection_id", "gift_number"),
+        Index("ix_gifts_peer_group", "collection_id", "model", "rarity_tier"),
+    )
 
 from .market import Listing
