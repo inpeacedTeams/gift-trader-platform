@@ -95,6 +95,7 @@ for router in (
     events_router,
     arbitrage_router,
     fees_router,
+    positions_router,
     sniper_router,
     analytics_router,
     trends_router,
@@ -104,7 +105,6 @@ for router in (
     auth_router,
     user_features_router,
     portfolio_router,
-    positions_router,
     ai_router,
 ):
     app.include_router(router, prefix=settings.api_prefix)

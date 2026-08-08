@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Calculator, TrendingUp } from "lucide-react";
-import { getFees, type FeeSchedule } from "../api";
+import { AlertTriangle, Calculator, Check, TrendingUp } from "lucide-react";
+import { getFees, openPosition, type FeeSchedule } from "../api";
 import { Select } from "./Select";
 import { formatPercent, formatTon, formatTonDelta } from "../format";
 import "./flip-calc.css";
 
 type Props = {
+  giftId?: number;
   floorTon?: string | number | null;
   medianTon?: string | number | null;
   /** Venues this gift actually trades on, so the fee picked is a real one. */
   venues?: string[];
+  authenticated?: boolean;
 };
 
 function toNumber(value: string | number | null | undefined): number | null {
@@ -27,8 +29,9 @@ function toNumber(value: string | number | null | undefined): number | null {
  * Fees come from the API rather than living here, so the calculator and the
  * arbitrage scanner always agree on what a trade costs.
  */
-export function FlipCalc({ floorTon, medianTon, venues = [] }: Props) {
+export function FlipCalc({ giftId, floorTon, medianTon, venues = [], authenticated = false }: Props) {
   const [fees, setFees] = useState<FeeSchedule | null>(null);
+  const [saved, setSaved] = useState(false);
   const floor = toNumber(floorTon);
   const median = toNumber(medianTon);
   const suggestedSell = median !== null && floor !== null ? Math.max(median, floor) : median ?? floor;
@@ -78,13 +81,23 @@ export function FlipCalc({ floorTon, medianTon, venues = [] }: Props) {
 
   const cost = buy === null ? null : buy + gas;
   const feeCost = sell === null ? null : (sell * feePercent) / 100;
-  const net = sell === null ? null : sell - feeCost!;
+  const net = sell === null || feeCost === null ? null : sell - feeCost;
   const profit = cost === null || net === null ? null : net - cost;
   const roi = profit === null || cost === null || cost <= 0 ? null : (profit / cost) * 100;
   const breakeven = cost === null || keep <= 0 ? null : cost / keep;
   // The exit price only exists if someone pays it: a breakeven above the
   // current floor means undercutting is not an option.
   const floorShort = breakeven !== null && floor !== null && breakeven > floor;
+
+  const record = async () => {
+    if (!giftId || buy === null || buy <= 0) return;
+    await openPosition({
+      gift_id: giftId,
+      buy_price_ton: String(buy),
+      ...(venue ? { marketplace: venue } : {}),
+    });
+    setSaved(true);
+  };
 
   return (
     <div className="flip-panel">
@@ -94,6 +107,17 @@ export function FlipCalc({ floorTon, medianTon, venues = [] }: Props) {
           <strong>Прибыль после комиссий</strong>
           <small>Сколько реально останется на руках</small>
         </div>
+        {authenticated && giftId && (
+          <button className="pos-ghost" onClick={() => void record()} disabled={saved || buy === null}>
+            {saved ? (
+              <>
+                <Check size={13} /> в позициях
+              </>
+            ) : (
+              "Записать покупку"
+            )}
+          </button>
+        )}
       </div>
       <div className="flip-inputs">
         <label className="flip-field">
@@ -101,7 +125,10 @@ export function FlipCalc({ floorTon, medianTon, venues = [] }: Props) {
           <input
             inputMode="decimal"
             value={buyText}
-            onChange={event => setBuyText(event.target.value)}
+            onChange={event => {
+              setBuyText(event.target.value);
+              setSaved(false);
+            }}
             placeholder="0"
           />
           {floor !== null && (
