@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
-import { Filter, Search } from "lucide-react";
-import type { Opportunity } from "../types";
-import { EmptyState } from "../components/State";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Filter, Search } from "lucide-react";
+import { getArbitrage } from "../api";
+import type { ArbitrageOpportunity } from "../types";
+import { EmptyState, ErrorState, LoadingState } from "../components/State";
+import { GiftImage } from "../components/GiftImage";
 import { Select } from "../components/Select";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "../format";
+import "../gifts.css";
 
 const EDGE_OPTIONS = [
   { value: "0", label: "Any edge" },
@@ -12,18 +15,39 @@ const EDGE_OPTIONS = [
   { value: "20", label: "20% and above" },
 ];
 
-export function Opportunities({ items }: { items: Opportunity[] }) {
+export function Opportunities({ onOpen }: { onOpen: (giftId: number) => void }) {
+  const [items, setItems] = useState<ArbitrageOpportunity[]>([]);
   const [query, setQuery] = useState("");
   const [minimum, setMinimum] = useState("0");
-  const filtered = useMemo(
-    () =>
-      items.filter(
-        item =>
-          Number(item.profit_percent) >= Number(minimum) &&
-          `${item.gift_key} ${item.buy_marketplace} ${item.sell_marketplace}`.toLowerCase().includes(query.toLowerCase())
-      ),
-    [items, query, minimum]
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setItems((await getArbitrage(Number(minimum))).items);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Arbitrage unavailable");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [minimum]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter(item =>
+      `${item.name ?? ""} ${item.model ?? ""} ${item.collection_name ?? ""} ${item.buy_marketplace} ${item.sell_marketplace}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [items, query]);
+
   return (
     <section className="page-section">
       <div className="section-head">
@@ -38,22 +62,36 @@ export function Opportunities({ items }: { items: Opportunity[] }) {
       <div className="filter-bar">
         <label className="search">
           <Search size={16} />
-          <input aria-label="Search opportunities" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search collection or marketplace" />
+          <input
+            aria-label="Search opportunities"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search gift, model or marketplace"
+          />
         </label>
         <div className="filter-select">
           <Filter size={15} />
           <Select label="Minimum edge" value={minimum} onChange={setMinimum} options={EDGE_OPTIONS} />
         </div>
       </div>
-      {filtered.length ? (
+      {error ? (
+        <ErrorState detail={error} retry={() => void load()} />
+      ) : loading ? (
+        <LoadingState />
+      ) : filtered.length ? (
         <div className="opportunity-grid stagger">
           {filtered.map(item => (
-            <article className="opportunity-card lift" key={`${item.buy_listing_id}-${item.sell_listing_id}`}>
+            <article className="opportunity-card lift" key={`${item.gift_id}-${item.buy_marketplace}-${item.sell_marketplace}`}>
               <div className="card-top">
-                <span className="gift-icon">✦</span>
-                <span className="verified">VERIFIED IDENTITY</span>
+                <GiftImage src={item.image_url} alt={item.name ?? "gift"} className="arb-thumb" />
+                <span className="verified">FEE AWARE</span>
               </div>
-              <h3>{item.gift_key.split(":").slice(-1)[0]}</h3>
+              <h3>
+                <button className="link-btn" onClick={() => onOpen(item.gift_id)}>
+                  {item.name ?? item.collection_name ?? `Gift #${item.gift_id}`}
+                </button>
+              </h3>
+              {item.model && <p className="muted-copy">{item.model}</p>}
               <div className="route">
                 <span>
                   Buy on <b>{item.buy_marketplace}</b>
@@ -69,11 +107,19 @@ export function Opportunities({ items }: { items: Opportunity[] }) {
                 <strong>{formatTonDelta(item.profit_ton)}</strong>
                 <b>{formatPercent(item.profit_percent)}</b>
               </div>
+              {item.buy_url && (
+                <a className="outline-btn" href={item.buy_url} target="_blank" rel="noreferrer">
+                  Открыть лот <ExternalLink size={13} />
+                </a>
+              )}
             </article>
           ))}
         </div>
       ) : (
-        <EmptyState title="No matching opportunities" detail="Lower the minimum edge or wait for the live collectors to refresh." />
+        <EmptyState
+          title="No matching opportunities"
+          detail="Спред считается только по подаркам, которые есть минимум на двух площадках. Подключите второй источник или снизьте порог."
+        />
       )}
     </section>
   );

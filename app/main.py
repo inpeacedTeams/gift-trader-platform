@@ -19,6 +19,7 @@ from app.routes.history import router as history_router
 from app.routes.jobs import router as jobs_router
 from app.routes.markets import router as markets_router
 from app.routes.movers import router as movers_router
+from app.routes.overview import router as overview_router
 from app.routes.portfolio import router as portfolio_router
 from app.routes.source_status import router as source_status_router
 from app.routes.trends import router as trends_router
@@ -67,6 +68,7 @@ app.add_middleware(
     allow_headers=["Accept", "Content-Type", "Authorization"],
 )
 for router in (
+    overview_router,
     markets_router,
     gifts_router,
     collections_router,
