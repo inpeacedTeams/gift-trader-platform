@@ -23,7 +23,7 @@ services:
       APP_ENV: ${APP_ENV:-development}
       APP_NAME: ${APP_NAME:-gift-trader-api}
       DATABASE_URL: postgresql+asyncpg://gift_trader:gift_trader@postgres:5432/gift_trader
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-604800}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -38,12 +38,23 @@ services:
       MARKET_SYNC_ENABLED: ${MARKET_SYNC_ENABLED:-true}
       PORTFOLIO_SYNC_INTERVAL_SECONDS: ${PORTFOLIO_SYNC_INTERVAL_SECONDS:-300}
       PORTFOLIO_SYNC_ENABLED: ${PORTFOLIO_SYNC_ENABLED:-true}
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
     command: ["sh", "-c", "python -m app.db.migrate && python -m app.db.verify_schema && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
