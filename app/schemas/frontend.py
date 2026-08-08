@@ -84,6 +84,29 @@ class GiftHistory(BaseModel):
     points: list[PricePoint]
 
 
+class MarketEventCard(BaseModel):
+    """One change on the market: a new listing, a reprice or a delisting."""
+
+    id: int
+    gift_id: int
+    name: str | None = None
+    model: str | None = None
+    image_url: str | None = None
+    collection_name: str | None = None
+    marketplace: str
+    event_type: str
+    price_ton: Decimal | None = None
+    previous_ton: Decimal | None = None
+    change_percent: Decimal | None = None
+    occurred_at: datetime
+
+
+class MarketEventFeed(BaseModel):
+    data_mode: str = "persisted"
+    items: list[MarketEventCard]
+    latest_id: int | None = None
+
+
 class TradeRecord(BaseModel):
     """A sale that actually happened."""
 
