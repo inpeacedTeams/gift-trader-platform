@@ -38,6 +38,7 @@ class GiftCard(BaseModel):
     listings_count: int = 0
     change_percent: Decimal | None = None
     best_marketplace: str | None = None
+    deal_percent: Decimal | None = None
 
 
 class GiftPage(BaseModel):
@@ -104,3 +105,24 @@ class Deal(BaseModel):
 class DealList(BaseModel):
     data_mode: str = "persisted"
     items: list[Deal]
+
+
+class MoverCard(BaseModel):
+    """A gift whose floor moved inside the requested window."""
+
+    gift_id: int
+    name: str | None = None
+    model: str | None = None
+    image_url: str | None = None
+    collection_id: int | None = None
+    collection_name: str | None = None
+    floor_ton: Decimal
+    previous_ton: Decimal
+    change_percent: Decimal
+
+
+class MoversResponse(BaseModel):
+    data_mode: str = "persisted"
+    window_hours: int
+    gainers: list[MoverCard]
+    losers: list[MoverCard]
