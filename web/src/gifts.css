@@ -7,6 +7,11 @@
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gift-search:focus-within {
+  border-color: rgba(125, 167, 255, 0.45);
 }
 
 .gift-search input {
@@ -24,6 +29,19 @@
   gap: 16px;
 }
 
+.gift-grid > * {
+  animation: gift-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gift-grid > *:nth-child(2) { animation-delay: 20ms; }
+.gift-grid > *:nth-child(3) { animation-delay: 40ms; }
+.gift-grid > *:nth-child(4) { animation-delay: 60ms; }
+.gift-grid > *:nth-child(5) { animation-delay: 80ms; }
+.gift-grid > *:nth-child(6) { animation-delay: 100ms; }
+.gift-grid > *:nth-child(7) { animation-delay: 120ms; }
+.gift-grid > *:nth-child(8) { animation-delay: 140ms; }
+.gift-grid > *:nth-child(n + 9) { animation-delay: 160ms; }
+
 .gift-card {
   display: flex;
   flex-direction: column;
@@ -35,12 +53,23 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.03);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .gift-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.22);
+}
+
+.gift-card:active {
+  transform: translateY(-1px);
+}
+
+.gift-card:focus-visible {
+  outline: none;
+  border-color: rgba(125, 167, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(125, 167, 255, 0.18);
 }
 
 .gift-image {
@@ -87,12 +116,14 @@
   gap: 8px;
   margin-top: 6px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .gift-card-meta {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .pager {
@@ -117,6 +148,7 @@
   cursor: pointer;
   font-size: 0.85rem;
   opacity: 0.7;
+  transition: opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .back-btn:hover {
@@ -136,6 +168,7 @@
 
 .gift-hero-copy h2 {
   margin: 4px 0 6px;
+  text-wrap: balance;
 }
 
 .gift-hero-copy em {
@@ -152,6 +185,7 @@
 
 .gift-hero-price strong {
   font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .price-chart {
@@ -169,6 +203,7 @@
 .chart-head strong {
   display: block;
   font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-head small {
@@ -191,6 +226,8 @@
 
 .chart-floor {
   stroke: #4ade80;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
 }
 
 .chart-median {
@@ -203,6 +240,7 @@
   justify-content: space-between;
   font-size: 0.72rem;
   opacity: 0.5;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-axis-x {
@@ -248,6 +286,12 @@
   gap: 12px;
   padding: 12px 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.listing-row:hover {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .listing-row:last-child {
@@ -273,4 +317,21 @@
   align-items: center;
   gap: 6px;
   text-decoration: none;
+}
+
+@keyframes gift-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gift-grid > *,
+  .gift-card,
+  .listing-row,
+  .back-btn {
+    animation: none;
+    transition: none;
+  }
 }
