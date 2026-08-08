@@ -17,6 +17,7 @@ REQUIRED_TABLES = {
     "source_statuses",
     "users",
     "watchlist_items",
+    "positions",
     "portfolio_wallets",
     "portfolio_holdings",
     "portfolio_valuations",
@@ -37,6 +38,7 @@ REQUIRED_COLUMNS = {
         "rarity_tier",
     },
     "listings": {"closed_at"},
+    "positions": {"buy_price_ton", "opened_at", "closed_at"},
 }
 
 
