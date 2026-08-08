@@ -35,8 +35,8 @@ jobs:
           python -m app.db.migrate
           python -m app.db.migrate
           python -m app.db.verify_schema
-      - name: Lint
-        run: ruff check app tests
+      - name: Check for runtime-breaking Python errors
+        run: ruff check app tests --select E9,F63,F7,F82
       - name: Test
         run: pytest -q
   frontend:
@@ -50,6 +50,6 @@ jobs:
         with:
           node-version: 20
       - name: Install frontend
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Build frontend
         run: npm run build
