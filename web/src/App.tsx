@@ -16,6 +16,7 @@ import { clearToken } from "./auth";
 import type { ArbitrageResponse, MarketResponse } from "./types";
 import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
+import { LiveFeed } from "./components/LiveFeed";
 import { Movers } from "./components/Movers";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
 import { Analyst } from "./pages/Analyst";
@@ -277,6 +278,7 @@ function Overview({
           <small>active sources</small>
         </div>
       </div>
+      <LiveFeed onOpen={onOpenGift} />
       <Movers onOpen={onOpenGift} />
       <div className="section-head overview-head">
         <div>

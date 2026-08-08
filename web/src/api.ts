@@ -1,8 +1,20 @@
-import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketResponse, MoversResponse } from "./types";
+import type { ArbitrageResponse, CollectionCard, CollectionPage, DealList, GiftDetail, GiftHistory, GiftPage, GiftTrades, MarketEventFeed, MarketResponse, MoversResponse } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const headers = new Headers(init.headers); headers.set("Accept", "application/json"); if (init.body) headers.set("Content-Type", "application/json"); const token = getToken(); if (token) headers.set("Authorization", `Bearer ${token}`); const response = await fetch(`${base}${path}`, { ...init, headers }); if (response.status === 401) { clearToken(); throw new Error("Authentication required"); } if (!response.ok) throw new Error(`API ${response.status}`); if (response.status === 204) return undefined as T; return response.json() as Promise<T>; }
+
+/** Prefer the server's own explanation over a bare status code. */
+async function errorText(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    if (body && typeof body.detail === "string") return body.detail;
+  } catch {
+    // no JSON body, fall back to the status
+  }
+  return `API ${response.status}`;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const headers = new Headers(init.headers); headers.set("Accept", "application/json"); if (init.body) headers.set("Content-Type", "application/json"); const token = getToken(); if (token) headers.set("Authorization", `Bearer ${token}`); const response = await fetch(`${base}${path}`, { ...init, headers }); if (response.status === 401) { clearToken(); throw new Error("Authentication required"); } if (!response.ok) throw new Error(await errorText(response)); if (response.status === 204) return undefined as T; return response.json() as Promise<T>; }
 export type WalletItem = { id: number; address: string; label?: string | null; created_at?: string };
 export type PortfolioNft = { nft_address: string; name?: string | null; image_url?: string | null; estimated_price_ton?: string | null; valuation_source: string; valuation_confidence?: string | null };
 export type PortfolioWallet = { wallet_id: number; address: string; label?: string | null; ton_balance: string; nfts: PortfolioNft[] };
@@ -10,8 +22,8 @@ export type PortfolioOverview = { data_mode: string; total_assets: number; value
 export type PortfolioPoint = { observed_at: string; total_ton: string; ton_balance: string; nft_value_ton: string; asset_count: number };
 export type AlertRule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
 export type AlertEvent = { id: number; message: string; is_read: boolean; created_at: string };
-export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit: number };
-export type AiAnswer = { answer: string; model: string; grounded_in: string; remaining_today?: number | null; cached?: boolean };
+export type AiStatus = { enabled: boolean; model?: string | null; hourly_limit?: number };
+export type AiAnswer = { answer: string; model: string; grounded_in?: string; remaining?: number; cached?: boolean };
 export type GiftSort = "recent" | "floor_asc" | "floor_desc" | "depth" | "change_desc" | "change_asc" | "deal_desc";
 export const getMarkets = (collections: string[] = []) => request<MarketResponse>(`/markets/snapshots${collections.length ? `?${collections.map(c => `collection=${encodeURIComponent(c)}`).join("&")}` : ""}`); export const getArbitrage = (minimum = 0) => request<ArbitrageResponse>(`/arbitrage?min_profit_percent=${minimum}`); export const getMe = () => request<User>("/auth/me");
 export async function authenticateTelegram(): Promise<User | null> { const initData = telegramInitData(); if (!initData) return null; const result = await request<{ access_token: string; user: User }>("/auth/telegram", { method: "POST", body: JSON.stringify({ init_data: initData }) }); setToken(result.access_token); return result.user; }
@@ -28,6 +40,19 @@ export const askAssistant = (question: string, giftId?: number) =>
     body: JSON.stringify({ question, ...(giftId ? { gift_id: giftId } : {}) }),
   });
 export const getGiftVerdict = (giftId: number) => request<AiAnswer>(`/ai/gifts/${giftId}/verdict`);
+// Older call sites use these names.
+export const askAi = askAssistant;
+export const getAiVerdict = getGiftVerdict;
+
+/** Live market changes. `afterId` makes each poll ask only for what is new. */
+export const getEvents = (options: { afterId?: number; limit?: number; eventType?: string; giftId?: number } = {}) => {
+  const params = new URLSearchParams();
+  params.set("limit", String(options.limit ?? 40));
+  if (options.afterId !== undefined) params.set("after_id", String(options.afterId));
+  if (options.eventType) params.set("event_type", options.eventType);
+  if (options.giftId) params.set("gift_id", String(options.giftId));
+  return request<MarketEventFeed>(`/events?${params.toString()}`);
+};
 
 export const getCollections = (options: { page?: number; pageSize?: number; search?: string } = {}) => {
   const params = new URLSearchParams();
