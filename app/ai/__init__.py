@@ -1,3 +1,3 @@
-from .client import AiReply, AiUnavailable, OpenRouterClient
+from .client import OpenRouterClient, OpenRouterError
 
-__all__ = ["AiReply", "AiUnavailable", "OpenRouterClient"]
+__all__ = ["OpenRouterClient", "OpenRouterError"]
