@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = None
     openrouter_model: str = DEFAULT_AI_MODEL
     openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
-    ai_timeout_seconds: float = 45.0
+    openrouter_timeout_seconds: float = 45.0
+    # The key is ours, so every endpoint that spends it is capped.
     ai_requests_per_hour: int = 30
     ai_verdict_cache_seconds: int = 600
     tonapi_base_url: str = "https://tonapi.io"
@@ -41,6 +42,9 @@ class Settings(BaseSettings):
     portals_auth_data: str | None = None
     getgems_collection_addresses: str = DEFAULT_GIFT_COLLECTIONS
     market_sources: str = DEFAULT_MARKET_SOURCES
+    # How deep a single crawl goes. High enough to reach the end of the book;
+    # lower it if a source starts rate limiting the pass.
+    crawl_max_pages: int = 200
     source_timeout_seconds: float = 20.0
     source_retries: int = 2
     source_backoff_seconds: float = 0.5
