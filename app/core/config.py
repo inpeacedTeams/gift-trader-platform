@@ -2,6 +2,16 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Verified TON gift collections. Override with GETGEMS_COLLECTION_ADDRESSES.
+DEFAULT_GIFT_COLLECTIONS = ",".join(
+    [
+        # Plush Pepes
+        "EQBG-g6ahkAUGWpefWbx-D_9sQ8oWbvy6puuq78U2c4NUDFS",
+        # Durov's Caps
+        "EQD9ikZq6xPgKjzmdBG0G0S80RvUJjbwgHrPZXDKc_wsE84w",
+    ]
+)
+
 
 class Settings(BaseSettings):
     app_name: str = "Gift Trader API"
@@ -16,7 +26,7 @@ class Settings(BaseSettings):
     tonapi_token: str | None = None
     portals_endpoint: str = "https://portals-market.com/api/nfts/search"
     portals_auth_data: str | None = None
-    getgems_collection_addresses: str = ""
+    getgems_collection_addresses: str = DEFAULT_GIFT_COLLECTIONS
     source_timeout_seconds: float = 20.0
     source_retries: int = 2
     source_backoff_seconds: float = 0.5
