@@ -1,4 +1,4 @@
-import type { ArbitrageResponse, MarketResponse } from "./types";
+import type { ArbitrageResponse, GiftDetail, GiftHistory, GiftPage, MarketResponse } from "./types";
 import { clearToken, getToken, setToken, telegramInitData, type User } from "./auth";
 export type { User } from "./auth";
 const base = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
@@ -16,3 +16,16 @@ export const getWatchlist = () => request<{ items: { id: number; gift_id: number
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
 export const getAlertRules = () => request<{ items: AlertRule[] }>("/alerts/rules"); export const createAlertRule = (payload: { gift_id?: number; rule_type: string; threshold: string }) => request<AlertRule>("/alerts/rules", { method: "POST", body: JSON.stringify(payload) }); export const updateAlertRule = (ruleId: number, is_active: boolean) => request<Pick<AlertRule, "id" | "is_active">>(`/alerts/rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ is_active }) }); export const deleteAlertRule = (ruleId: number) => request(`/alerts/rules/${ruleId}`, { method: "DELETE" }); export const getAlertEvents = () => request<{ items: AlertEvent[] }>("/alerts/events"); export const markAlertRead = (eventId: number) => request(`/alerts/events/${eventId}/read`, { method: "PATCH" });
+
+export const getGifts = (options: { page?: number; pageSize?: number; search?: string; marketplace?: string } = {}) => {
+  const params = new URLSearchParams();
+  params.set("page", String(options.page ?? 1));
+  params.set("page_size", String(options.pageSize ?? 24));
+  if (options.search) params.set("search", options.search);
+  if (options.marketplace) params.set("marketplace", options.marketplace);
+  return request<GiftPage>(`/gifts?${params.toString()}`);
+};
+export const getGift = (giftId: number) => request<GiftDetail>(`/gifts/${giftId}`);
+export const getGiftHistory = (giftId: number, marketplace?: string) =>
+  request<GiftHistory>(`/gifts/${giftId}/history${marketplace ? `?marketplace=${encodeURIComponent(marketplace)}` : ""}`);
+export const triggerMarketSync = () => request<{ status: string; job: string }>("/jobs/market-sync", { method: "POST" });

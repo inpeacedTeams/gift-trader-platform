@@ -1,10 +1,11 @@
-import { Activity, Bell, LayoutDashboard, Settings2, Star, Wallet } from "lucide-react";
+import { Activity, Bell, Gem, LayoutDashboard, Settings2, Star, Wallet } from "lucide-react";
 
-export type View = "overview" | "opportunities" | "watchlist" | "portfolio" | "alerts" | "settings";
+export type View = "overview" | "gifts" | "opportunities" | "watchlist" | "portfolio" | "alerts" | "settings";
 
 export function Nav({ view, onChange, count }: { view: View; onChange: (view: View) => void; count: number }) {
   const items: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "gifts", label: "Gifts", icon: Gem },
     { id: "opportunities", label: "Opportunities", icon: Activity },
     { id: "watchlist", label: "Watchlist", icon: Star },
     { id: "portfolio", label: "Portfolio", icon: Wallet },
