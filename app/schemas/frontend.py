@@ -38,6 +38,7 @@ class GiftCard(BaseModel):
     listings_count: int = 0
     change_percent: Decimal | None = None
     best_marketplace: str | None = None
+    deal_percent: Decimal | None = None
 
 
 class GiftPage(BaseModel):

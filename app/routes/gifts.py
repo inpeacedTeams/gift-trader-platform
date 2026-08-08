@@ -22,6 +22,7 @@ async def gifts(
     model: str | None = None,
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
+    deals_only: bool = Query(default=False),
     sort: str = Query(default="recent", pattern=f"^({'|'.join(SORTS)})$"),
     session: AsyncSession = Depends(get_session),
 ):
@@ -35,11 +36,12 @@ async def gifts(
         model=model,
         min_price=min_price,
         max_price=max_price,
+        deals_only=deals_only,
         sort=sort,
     )
     names: dict[int, str | None] = {}
     items = []
-    for gift, floor_ton, median_ton, listings_count in rows:
+    for gift, floor_ton, median_ton, listings_count, deal_percent in rows:
         if gift.collection_id is not None and gift.collection_id not in names:
             names[gift.collection_id] = await repository.collection_name(gift.collection_id)
         items.append(
@@ -57,6 +59,7 @@ async def gifts(
                 listings_count=listings_count,
                 change_percent=changes.get(gift.id),
                 best_marketplace=venues.get(gift.id),
+                deal_percent=deal_percent,
             )
         )
     return GiftPage(items=items, page=page, page_size=page_size, total=total, has_next=page * page_size < total)
@@ -79,6 +82,7 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
     gift, listings = result
     active = sorted([item for item in listings if item.active], key=lambda item: item.price_ton)
     prices = [item.price_ton for item in active]
+    floor = prices[0] if prices else None
     changes = await repository.changes([gift_id])
     return GiftDetail(
         id=gift.id,
@@ -89,11 +93,12 @@ async def gift_detail(gift_id: int, session: AsyncSession = Depends(get_session)
         model=gift.model,
         gift_number=gift.gift_number,
         image_url=gift.image_url,
-        floor_ton=prices[0] if prices else None,
+        floor_ton=floor,
         median_ton=prices[len(prices) // 2] if prices else None,
         listings_count=len(active),
         change_percent=changes.get(gift_id),
         best_marketplace=active[0].marketplace if active else None,
+        deal_percent=await repository.deal_percent(gift, floor),
         listings=[GiftListing.model_validate(item) for item in listings],
         sources=sorted({item.marketplace for item in active}),
     )

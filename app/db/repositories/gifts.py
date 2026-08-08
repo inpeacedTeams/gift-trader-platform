@@ -1,12 +1,36 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Numeric, Select, and_, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Collection, Gift, Listing, PriceSnapshot
 
-SORTS = ("recent", "floor_asc", "floor_desc", "depth", "change_desc", "change_asc")
+SORTS = ("recent", "floor_asc", "floor_desc", "depth", "change_desc", "change_asc", "deal_desc")
+# A discount is only meaningful once the peer group has real depth.
+MIN_PEER_LISTINGS = 3
+
+
+def _peer_medians():
+    """Median active price for every collection and model pair.
+
+    This is the reference a gift is judged against: same series, same model,
+    so a cheap common model never looks like a bargain next to a rare one.
+    """
+    return (
+        select(
+            Gift.collection_id.label("collection_id"),
+            Gift.model.label("model"),
+            func.percentile_cont(0.5)
+            .within_group(Listing.price_ton.asc())
+            .label("peer_median"),
+            func.count(Listing.id).label("peer_count"),
+        )
+        .join(Listing, and_(Listing.gift_id == Gift.id, Listing.active.is_(True)))
+        .where(Gift.model.is_not(None), Gift.collection_id.is_not(None))
+        .group_by(Gift.collection_id, Gift.model)
+        .subquery()
+    )
 
 
 class GiftRepository:
@@ -22,17 +46,33 @@ class GiftRepository:
         model: str | None,
         min_price: Decimal | None,
         max_price: Decimal | None,
+        deals_only: bool,
         active_only: bool,
-    ) -> Select:
+    ) -> tuple[Select, object]:
         """Gift rows with market aggregates taken from currently active listings.
 
         Reading the aggregates here keeps the catalog to a single query and
-        makes floor and depth sortable, which a per row snapshot lookup cannot do.
+        makes floor, depth and discount sortable, which a per row lookup cannot do.
         """
         listing_join = (Listing.gift_id == Gift.id) & Listing.active.is_(True)
         if marketplace:
             listing_join = listing_join & (Listing.marketplace == marketplace)
+        peers = _peer_medians()
         floor = func.min(Listing.price_ton)
+        deal = case(
+            (
+                and_(
+                    peers.c.peer_count >= MIN_PEER_LISTINGS,
+                    peers.c.peer_median > 0,
+                    floor < peers.c.peer_median,
+                ),
+                cast(
+                    (peers.c.peer_median - floor) / peers.c.peer_median * 100,
+                    Numeric(6, 2),
+                ),
+            ),
+            else_=None,
+        ).label("deal_percent")
         statement = (
             select(
                 Gift,
@@ -41,9 +81,14 @@ class GiftRepository:
                 .within_group(Listing.price_ton.asc())
                 .label("median_ton"),
                 func.count(Listing.id).label("listings_count"),
+                deal,
             )
             .outerjoin(Listing, listing_join)
-            .group_by(Gift.id)
+            .outerjoin(
+                peers,
+                and_(peers.c.collection_id == Gift.collection_id, peers.c.model == Gift.model),
+            )
+            .group_by(Gift.id, peers.c.peer_median, peers.c.peer_count)
         )
         if active_only:
             statement = statement.where(Gift.is_active.is_(True))
@@ -62,10 +107,18 @@ class GiftRepository:
             statement = statement.having(floor >= min_price)
         if max_price is not None:
             statement = statement.having(floor <= max_price)
-        return statement
+        if deals_only:
+            statement = statement.having(
+                and_(
+                    peers.c.peer_count >= MIN_PEER_LISTINGS,
+                    peers.c.peer_median > 0,
+                    floor < peers.c.peer_median,
+                )
+            )
+        return statement, deal
 
     @staticmethod
-    def _ordered(statement: Select, sort: str) -> Select:
+    def _ordered(statement: Select, sort: str, deal) -> Select:
         floor = func.min(Listing.price_ton)
         depth = func.count(Listing.id)
         if sort == "floor_asc":
@@ -74,6 +127,8 @@ class GiftRepository:
             return statement.order_by(floor.desc().nullslast(), Gift.id.desc())
         if sort == "depth":
             return statement.order_by(depth.desc(), Gift.id.desc())
+        if sort == "deal_desc":
+            return statement.order_by(deal.desc().nullslast(), Gift.id.desc())
         return statement.order_by(Gift.id.desc())
 
     async def best_venues(self, gift_ids: list[int]) -> dict[int, str]:
@@ -129,22 +184,24 @@ class GiftRepository:
         model: str | None = None,
         min_price: Decimal | None = None,
         max_price: Decimal | None = None,
+        deals_only: bool = False,
         sort: str = "recent",
         active_only: bool = True,
     ):
-        base = self._base(
+        base, deal = self._base(
             search=search,
             marketplace=marketplace,
             collection_id=collection_id,
             model=model,
             min_price=min_price,
             max_price=max_price,
+            deals_only=deals_only,
             active_only=active_only,
         )
         total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
         rows = (
             await self.session.execute(
-                self._ordered(base, sort).offset((page - 1) * page_size).limit(page_size)
+                self._ordered(base, sort, deal).offset((page - 1) * page_size).limit(page_size)
             )
         ).all()
         gift_ids = [row[0].id for row in rows]
@@ -182,6 +239,25 @@ class GiftRepository:
             ).all()
         )
         return gift, listings
+
+    async def deal_percent(self, gift: Gift, floor: Decimal | None) -> Decimal | None:
+        """Discount of one gift against its peer group, for the detail page."""
+        if floor is None or gift.model is None or gift.collection_id is None:
+            return None
+        peers = _peer_medians()
+        row = (
+            await self.session.execute(
+                select(peers.c.peer_median, peers.c.peer_count).where(
+                    peers.c.collection_id == gift.collection_id, peers.c.model == gift.model
+                )
+            )
+        ).first()
+        if row is None:
+            return None
+        median, count = row
+        if count < MIN_PEER_LISTINGS or not median or median <= 0 or floor >= median:
+            return None
+        return (Decimal(median) - floor) / Decimal(median) * Decimal(100)
 
     async def latest_stats(self, gift_id: int):
         return list(
