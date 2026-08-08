@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -15,12 +16,19 @@ from app.market.normalize import normalize_snapshot
 MIN_CHANGE_PERCENT = Decimal("0.5")
 
 
+@dataclass
+class PersistResult:
+    listings: int = 0
+    # Which gifts this pass touched, so alerts only re-check what moved.
+    gift_ids: set[int] = field(default_factory=set)
+
+
 class MarketSnapshotRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.collections = CollectionRepository(session)
 
-    async def persist(self, snapshot: MarketSnapshot) -> int:
+    async def persist(self, snapshot: MarketSnapshot) -> PersistResult:
         """Store a full pass over one marketplace and log what changed.
 
         Existing rows are loaded up front: a whole market crawl is tens of
@@ -34,9 +42,10 @@ class MarketSnapshotRepository:
             grouped[item.gift_key].append(item.listing)
 
         existing = await self._existing_listings(snapshot.marketplace)
-        persisted = 0
+        result = PersistResult()
         for key, listings in grouped.items():
             gift = await self._get_or_create_gift(key, listings[0])
+            result.gift_ids.add(gift.id)
             prices = [item.price_ton for item in listings]
             self.session.add(
                 PriceSnapshot(
@@ -81,12 +90,12 @@ class MarketSnapshotRepository:
                         self._record(gift.id, listing, "listed", item.price_ton, None, now)
                     else:
                         self._maybe_price_event(gift.id, listing, previous, item.price_ton, now)
-                persisted += 1
+                result.listings += 1
             await self.session.flush()
 
-        await self._close_missing(snapshot.marketplace, now)
+        result.gift_ids |= await self._close_missing(snapshot.marketplace, now)
         await self.session.commit()
-        return persisted
+        return result
 
     async def _existing_listings(self, marketplace: str) -> dict[str, Listing]:
         rows = await self.session.scalars(
@@ -140,7 +149,7 @@ class MarketSnapshotRepository:
             change_percent=change.quantize(Decimal("0.01")),
         )
 
-    async def _close_missing(self, marketplace: str, now: datetime) -> None:
+    async def _close_missing(self, marketplace: str, now: datetime) -> set[int]:
         """Anything not seen in this pass is gone from the market."""
         stale = (
             await self.session.scalars(
@@ -159,6 +168,7 @@ class MarketSnapshotRepository:
                 .where(Listing.id.in_([item.id for item in stale]))
                 .values(active=False)
             )
+        return {listing.gift_id for listing in stale}
 
     async def _collection_id(self, item) -> int | None:
         identity = collection_key(item)
