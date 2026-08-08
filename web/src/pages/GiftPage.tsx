@@ -7,6 +7,7 @@ import { GiftImage } from "../components/GiftImage";
 import { Liquidity } from "../components/Liquidity";
 import { PriceChart } from "../components/PriceChart";
 import { QuickAlert } from "../components/QuickAlert";
+import { RarityBadge, TraitGrid } from "../components/Rarity";
 import { SaleHistory } from "../components/SaleHistory";
 import { Verdict } from "../components/Verdict";
 import { formatAgo, formatCount, formatPercent, formatTon } from "../format";
@@ -78,18 +79,19 @@ export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled, onO
               <Layers size={13} /> {gift.collection_name}
             </button>
           )}
-          <p className="muted-copy">{gift.model ? `Model ${gift.model}` : "Model not resolved yet"}</p>
           <div className="gift-hero-price">
             <strong>{formatTon(gift.floor_ton)}</strong>
             {change && <span className={rising ? "trend-up" : "trend-down"}>{change} · 24h</span>}
+            <RarityBadge gift={gift} inline />
             {deal !== null && deal >= 1 && (
               <span className="deal-badge inline">
-                <Tag size={11} /> {deal.toFixed(0)}% under {gift.model ?? "model"} median
+                <Tag size={11} /> {deal.toFixed(0)}% under its peer median
               </span>
             )}
           </div>
         </div>
       </div>
+      <TraitGrid gift={gift} />
       <Verdict giftId={gift.id} authenticated={authenticated} enabled={aiEnabled} />
       <Liquidity giftId={gift.id} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
