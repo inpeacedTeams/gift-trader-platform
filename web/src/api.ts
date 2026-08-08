@@ -95,51 +95,50 @@ export type FeeSchedule = {
   marketplaces: MarketplaceFee[];
 };
 
-/** A lot the user actually owns, priced at what an exit would really pay.
+/** One recorded buy, marked to the live market.
  *
- * `valued` is false when nothing is listed for that gift: the row then says
- * "no price" instead of quoting a number we do not have.
+ * `exit_net_ton` is what the sale would actually pay out after the venue fee
+ * and gas. It is null when the gift has no active listing anywhere, which is
+ * unknown value rather than zero, and such rows stay out of the totals.
  */
-export type Position = {
+export type PositionCard = {
   id: number;
   gift_id: number;
   name?: string | null;
   model?: string | null;
-  gift_number?: number | null;
   image_url?: string | null;
-  rarity_tier?: string | null;
+  rarity_tier?: RarityTier | null;
+  gift_number?: number | null;
   collection_name?: string | null;
+  marketplace?: string | null;
   buy_price_ton: string;
-  buy_marketplace?: string | null;
+  quantity: number;
   opened_at: string;
+  closed_at?: string | null;
   sell_price_ton?: string | null;
   sell_marketplace?: string | null;
-  closed_at?: string | null;
   note?: string | null;
-  is_open: boolean;
-  days_held: number;
-  cost_ton: string;
-  gas_ton: string;
-  exit_marketplace?: string | null;
-  exit_fee_percent: string;
   floor_ton?: string | null;
-  net_value_ton?: string | null;
+  median_ton?: string | null;
+  exit_venue?: string | null;
+  exit_net_ton?: string | null;
+  cost_basis_ton: string;
   profit_ton?: string | null;
-  profit_percent?: string | null;
-  valued: boolean;
+  roi_percent?: string | null;
+  is_open: boolean;
 };
 export type PositionSummary = {
   open_count: number;
   closed_count: number;
-  unvalued_count: number;
+  unpriced_count: number;
   invested_ton: string;
   market_value_ton: string;
   unrealized_ton: string;
-  unrealized_percent?: string | null;
   realized_ton: string;
+  wins: number;
   win_rate_percent?: string | null;
 };
-export type PositionBook = { data_mode: string; items: Position[]; summary: PositionSummary };
+export type PositionList = { data_mode: string; items: PositionCard[]; summary: PositionSummary };
 
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
@@ -171,29 +170,35 @@ export const deleteWatch = (watchId: number) => request(`/sniper/watches/${watch
 export const getGiftLiquidity = (giftId: number) =>
   request<GiftLiquidity>(`/sniper/gifts/${giftId}/liquidity`);
 
-/** Positions: the user's own book, with P&L against the live floor. */
+/** Positions: the user's own book, priced against the live market. */
 export const getPositions = (includeClosed = true) =>
-  request<PositionBook>(`/positions?include_closed=${includeClosed}`);
-export const createPosition = (payload: {
+  request<PositionList>(`/positions?include_closed=${includeClosed}`);
+export const openPosition = (payload: {
   gift_id: number;
   buy_price_ton: string;
-  buy_marketplace?: string;
-  opened_at?: string;
+  marketplace?: string;
+  quantity?: number;
   note?: string;
-}) => request<Position>("/positions", { method: "POST", body: JSON.stringify(payload) });
+}) => request<PositionCard>("/positions", { method: "POST", body: JSON.stringify(payload) });
 export const updatePosition = (
   positionId: number,
   payload: {
     buy_price_ton?: string;
-    buy_marketplace?: string;
-    opened_at?: string;
-    sell_price_ton?: string;
+    quantity?: number;
+    marketplace?: string;
+    sell_price_ton?: string | null;
     sell_marketplace?: string;
-    closed_at?: string;
     note?: string;
-    reopen?: boolean;
   }
-) => request<Position>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify(payload) });
+) => request<PositionCard>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify(payload) });
+/** Booking an exit needs the price it actually sold for, never a guess. */
+export const closePosition = (positionId: number, sellPriceTon: string, sellMarketplace?: string) =>
+  updatePosition(positionId, {
+    sell_price_ton: sellPriceTon,
+    ...(sellMarketplace ? { sell_marketplace: sellMarketplace } : {}),
+  });
+/** Undo a mistyped exit: the lot goes back on the open book. */
+export const reopenPosition = (positionId: number) => updatePosition(positionId, { sell_price_ton: null });
 export const deletePosition = (positionId: number) => request(`/positions/${positionId}`, { method: "DELETE" });
 
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
