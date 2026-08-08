@@ -24,6 +24,7 @@ from app.routes.markets import router as markets_router
 from app.routes.movers import router as movers_router
 from app.routes.overview import router as overview_router
 from app.routes.portfolio import router as portfolio_router
+from app.routes.positions import router as positions_router
 from app.routes.sniper import router as sniper_router
 from app.routes.source_status import router as source_status_router
 from app.routes.trends import router as trends_router
@@ -103,6 +104,7 @@ for router in (
     auth_router,
     user_features_router,
     portfolio_router,
+    positions_router,
     ai_router,
 ):
     app.include_router(router, prefix=settings.api_prefix)
