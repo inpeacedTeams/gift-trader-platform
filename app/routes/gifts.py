@@ -124,6 +124,8 @@ async def gift_history(
     rows = await PriceHistoryRepository(session).history(
         gift_id=gift_id, marketplace=marketplace, limit=limit
     )
+    # The repository returns newest first; charts read left to right.
     return GiftHistory(
-        gift_id=gift_id, points=[PricePoint.model_validate(row) for row in rows]
+        gift_id=gift_id,
+        points=[PricePoint.model_validate(row) for row in reversed(rows)],
     )
