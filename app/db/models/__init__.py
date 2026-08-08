@@ -5,6 +5,7 @@ from .operations import SourceStatus, Trade
 from .portfolio import PortfolioHolding, PortfolioValuation
 from .positions import Position
 from .resolver import ResolverTelemetry
+from .selling import SellerIdentity, UndercutNotice
 from .sniper import SniperHit, SniperWatch
 from .users import AlertEvent, AlertRule, PortfolioWallet, User, WatchlistItem
 
@@ -15,10 +16,12 @@ __all__ = [
     "MarketEvent",
     "Position",
     "PriceSnapshot",
+    "SellerIdentity",
     "SourceStatus",
     "SniperHit",
     "SniperWatch",
     "Trade",
+    "UndercutNotice",
     "PortfolioHolding",
     "PortfolioValuation",
     "ResolverTelemetry",
