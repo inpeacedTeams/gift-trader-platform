@@ -11,7 +11,7 @@ DEFAULT_GIFT_COLLECTIONS = ",".join(
         "EQD9ikZq6xPgKjzmdBG0G0S80RvUJjbwgHrPZXDKc_wsE84w",
     ]
 )
-# Sources that need no credentials. Add "portals" or "fragment" once configured.
+# Sources that need no credentials. Add "mrkt", "portals" or "fragment" once configured.
 DEFAULT_MARKET_SOURCES = "tonnel,getgems"
 # Free router: OpenRouter picks an available zero cost model per request.
 DEFAULT_AI_MODEL = "openrouter/free"
@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     tonnel_endpoint: str = "https://gifts2.tonnel.network/api/pageGifts"
     tonnel_history_endpoint: str = "https://gifts2.tonnel.network/api/saleHistory"
     tonnel_auth_data: str | None = None
+    mrkt_base_url: str = "https://api.tgmrkt.io/api/v1"
+    mrkt_token: str | None = None
+    mrkt_init_data: str | None = None
     portals_endpoint: str = "https://portals-market.com/api/nfts/search"
     portals_auth_data: str | None = None
     getgems_collection_addresses: str = DEFAULT_GIFT_COLLECTIONS

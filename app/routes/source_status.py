@@ -11,14 +11,18 @@ from app.schemas.frontend import SourceStatusCard, SourceStatusList
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 # Sources that cannot run without a credential we may not have.
-CREDENTIAL_REQUIRED = {"portals": "portals_auth_data"}
+CREDENTIAL_REQUIRED = {
+    "portals": ("portals_auth_data",),
+    "mrkt": ("mrkt_token", "mrkt_init_data"),
+}
 
 
 def _is_configured(marketplace: str) -> bool:
-    setting = CREDENTIAL_REQUIRED.get(marketplace)
-    if setting is None:
+    settings_names = CREDENTIAL_REQUIRED.get(marketplace)
+    if settings_names is None:
         return True
-    return bool(getattr(get_settings(), setting, None))
+    settings = get_settings()
+    return any(getattr(settings, name, None) for name in settings_names)
 
 
 @router.get("/status", response_model=SourceStatusList)
