@@ -1,50 +1,38 @@
-import { useEffect, useState } from "react";
-import { Briefcase, Check, Plus, Trash2, Undo2 } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { Briefcase, Check, LoaderCircle, RotateCcw, Trash2, X } from "lucide-react";
 import {
-  closePosition,
-  createPosition,
   deletePosition,
-  getGifts,
   getPositions,
-  reopenPosition,
+  updatePosition,
   type Position,
   type PositionSummary,
 } from "../api";
-import type { GiftCard } from "../types";
+import { EmptyState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
-import { ErrorState, LoadingState } from "../components/State";
-import { formatPercent, formatTon, formatTonDelta } from "../format";
+import { formatCount, formatPercent, formatTon, formatTonDelta } from "../format";
 import "../positions.css";
 
-type Props = { authenticated: boolean; onOpenGift?: (giftId: number) => void };
-
-function tone(value?: string | null): string {
-  if (value === null || value === undefined) return "";
-  return Number(value) >= 0 ? "profit" : "loss";
-}
-
-/** What the market is doing to you, rather than what it is doing.
+/** The flipper's own book.
  *
- * Cost basis includes the gas already spent, and the current value is what a
- * sale would actually pay after the venue's cut. Anything we cannot price is
- * labelled as such and kept out of the totals.
+ * The rest of the product prices the market; this prices the user. Open lots
+ * are marked against the live floor minus the venue fee and the gas already
+ * spent, so the number on screen is money that would actually arrive.
  */
-export function Positions({ authenticated, onOpenGift }: Props) {
+export function Positions({
+  authenticated,
+  onOpen,
+}: {
+  authenticated: boolean;
+  onOpen: (giftId: number) => void;
+}) {
   const [items, setItems] = useState<Position[]>([]);
   const [summary, setSummary] = useState<PositionSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [includeClosed, setIncludeClosed] = useState(true);
-
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState<GiftCard[]>([]);
-  const [picked, setPicked] = useState<GiftCard | null>(null);
-  const [buyPrice, setBuyPrice] = useState("");
-  const [venue, setVenue] = useState("");
-  const [saving, setSaving] = useState(false);
-
   const [closingId, setClosingId] = useState<number | null>(null);
   const [sellPrice, setSellPrice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     if (!authenticated) {
@@ -53,12 +41,12 @@ export function Positions({ authenticated, onOpenGift }: Props) {
     }
     setLoading(true);
     try {
-      const page = await getPositions(includeClosed);
-      setItems(page.items);
-      setSummary(page.summary);
+      const book = await getPositions(includeClosed);
+      setItems(book.items);
+      setSummary(book.summary);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Позиции недоступны");
+      setError(e instanceof Error ? e.message : "Не удалось загрузить позиции");
     } finally {
       setLoading(false);
     }
@@ -68,250 +56,226 @@ export function Positions({ authenticated, onOpenGift }: Props) {
     void load();
   }, [authenticated, includeClosed]);
 
-  // Search the catalog rather than asking the user to remember an id.
-  useEffect(() => {
-    if (search.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void getGifts({ search: search.trim(), pageSize: 6 })
-        .then(page => {
-          if (!cancelled) setResults(page.items);
-        })
-        .catch(() => {
-          if (!cancelled) setResults([]);
-        });
-    }, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [search]);
-
-  const pick = (gift: GiftCard) => {
-    setPicked(gift);
-    setResults([]);
-    setSearch(gift.name ?? `Gift #${gift.id}`);
-    if (gift.floor_ton) setBuyPrice(String(Number(gift.floor_ton)));
-    if (gift.best_marketplace) setVenue(gift.best_marketplace);
-  };
-
-  const submit = async () => {
-    if (!picked || !buyPrice) return;
-    setSaving(true);
+  const close = async (event: FormEvent, position: Position) => {
+    event.preventDefault();
+    if (!sellPrice.trim()) return;
+    setBusy(true);
     try {
-      await createPosition({
-        gift_id: picked.id,
-        buy_price_ton: buyPrice,
-        ...(venue ? { buy_marketplace: venue } : {}),
-      });
-      setPicked(null);
-      setSearch("");
-      setBuyPrice("");
-      setVenue("");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось добавить позицию");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const close = async (position: Position) => {
-    if (!sellPrice) return;
-    try {
-      await closePosition(position.id, {
-        sell_price_ton: sellPrice,
-        ...(position.exit_marketplace ? { sell_marketplace: position.exit_marketplace } : {}),
-      });
+      await updatePosition(position.id, { sell_price_ton: sellPrice.trim() });
       setClosingId(null);
       setSellPrice("");
+      // Totals and the win rate move with every close, so re-read the book.
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось закрыть позицию");
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const reopen = async (position: Position) => {
+    setBusy(true);
+    try {
+      await updatePosition(position.id, { reopen: true });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось вернуть позицию");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (position: Position) => {
+    setItems(current => current.filter(item => item.id !== position.id));
+    await deletePosition(position.id).catch(() => undefined);
+    await load();
+  };
+
+  const title = (position: Position): string => {
+    const name = position.name ?? position.model ?? `Gift #${position.gift_id}`;
+    return position.gift_number ? `${name} #${position.gift_number}` : name;
+  };
+
+  const entry = (position: Position): string => {
+    const parts = [formatTon(position.buy_price_ton)];
+    if (position.buy_marketplace) parts.push(position.buy_marketplace);
+    parts.push(position.is_open ? `${formatCount(position.days_held)} дн. в позиции` : `держал ${formatCount(position.days_held)} дн.`);
+    return parts.join(" · ");
   };
 
   if (!authenticated) {
     return (
       <section className="page-section">
-        <p className="muted-copy">
-          Войдите через Telegram, чтобы вести позиции: цену входа знаете только вы, из рынка её не достать.
-        </p>
+        <p className="muted-copy">Войдите через Telegram, чтобы вести свои позиции.</p>
       </section>
     );
   }
-  if (loading) return <LoadingState />;
-  if (error && !items.length) return <ErrorState detail={error} retry={() => void load()} />;
 
   return (
     <section className="page-section">
-      {summary && (
-        <div className="metric-grid">
-          <div className="metric blue">
-            <span>Вложено</span>
-            <strong>{formatTon(summary.invested_ton)}</strong>
-            <small>{summary.open_count} открытых лотов</small>
-          </div>
-          <div className="metric violet">
-            <span>Сейчас на руки</span>
-            <strong>{formatTon(summary.market_value_ton)}</strong>
-            <small>после комиссии площадки</small>
-          </div>
-          <div className={`metric ${Number(summary.unrealized_ton) >= 0 ? "green" : "red"}`}>
-            <span>Нереализованный P&amp;L</span>
-            <strong className={tone(summary.unrealized_ton)}>{formatTonDelta(summary.unrealized_ton)}</strong>
-            <small>{summary.unrealized_percent ? formatPercent(summary.unrealized_percent) : "нет оценки"}</small>
-          </div>
-          <div className="metric green">
-            <span>Зафиксировано</span>
-            <strong className={tone(summary.realized_ton)}>{formatTonDelta(summary.realized_ton)}</strong>
-            <small>
-              {summary.closed_count} сделок
-              {summary.win_rate_percent ? ` · ${Number(summary.win_rate_percent).toFixed(0)}% в плюс` : ""}
-            </small>
-          </div>
-        </div>
-      )}
-      {summary && summary.unvalued_count > 0 && (
-        <p className="muted-copy">
-          {summary.unvalued_count} позиций без активных лотов на рынке: оценить их нечем, поэтому в суммы они не входят.
-        </p>
-      )}
-
-      <div className="position-form">
-        <div className="pos-search">
-          <label>
-            <span>Подарок</span>
-            <input
-              value={search}
-              onChange={event => {
-                setSearch(event.target.value);
-                setPicked(null);
-              }}
-              placeholder="Начните вводить название"
-            />
-          </label>
-          {results.length > 0 && (
-            <ul className="pos-results">
-              {results.map(gift => (
-                <li key={gift.id}>
-                  <button type="button" onClick={() => pick(gift)}>
-                    <GiftImage src={gift.image_url} alt={gift.name ?? "gift"} className="tiny" />
-                    <span>
-                      <strong>{gift.name ?? `Gift #${gift.id}`}</strong>
-                      <small>
-                        {gift.model ?? "без модели"} · floor {formatTon(gift.floor_ton)}
-                      </small>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <label>
-          <span>Цена покупки, TON</span>
-          <input inputMode="decimal" value={buyPrice} onChange={event => setBuyPrice(event.target.value)} placeholder="0" />
-        </label>
-        <label>
-          <span>Площадка</span>
-          <input value={venue} onChange={event => setVenue(event.target.value)} placeholder="tonnel" />
-        </label>
-        <button className="primary-btn" disabled={!picked || !buyPrice || saving} onClick={() => void submit()}>
-          <Plus size={14} /> Добавить
-        </button>
-      </div>
-
       <div className="section-head">
         <div>
-          <p className="eyebrow">PORTFOLIO</p>
-          <h3>Мои позиции</h3>
+          <p className="eyebrow">YOUR BOOK</p>
+          <h2>Мои позиции</h2>
         </div>
-        <button className="outline-btn" onClick={() => setIncludeClosed(current => !current)}>
+        <span className="fresh">
+          <i /> {formatCount(summary?.open_count ?? 0)} открытых
+        </span>
+      </div>
+      <div className="alert-setup">
+        <Briefcase size={24} />
+        <div>
+          <h3>Сколько ты реально заработал</h3>
+          <p>
+            Открытые лоты оцениваются по текущему floor за вычетом комиссии площадки и газа: это
+            деньги, которые дойдут до кошелька, а не цена в объявлении. Закрытые дают винрейт.
+          </p>
+        </div>
+      </div>
+      {error && <div className="notice error">{error}</div>}
+      {summary && (
+        <div className="position-summary">
+          <div>
+            <span>Вложено</span>
+            <strong>{formatTon(summary.invested_ton)}</strong>
+            <small>{formatCount(summary.open_count)} открытых лотов</small>
+          </div>
+          <div>
+            <span>Сейчас стоит</span>
+            <strong>{formatTon(summary.market_value_ton)}</strong>
+            <small>
+              {summary.unvalued_count
+                ? `${formatCount(summary.unvalued_count)} без цены, вне итогов`
+                : "чистыми после комиссий"}
+            </small>
+          </div>
+          <div>
+            <span>Нереализованный P&L</span>
+            <strong className={Number(summary.unrealized_ton) >= 0 ? "trend-up" : "trend-down"}>
+              {formatTonDelta(summary.unrealized_ton)}
+            </strong>
+            <small>{formatPercent(summary.unrealized_percent) ?? "нет оценки"}</small>
+          </div>
+          <div>
+            <span>Реализованный P&L</span>
+            <strong className={Number(summary.realized_ton) >= 0 ? "trend-up" : "trend-down"}>
+              {formatTonDelta(summary.realized_ton)}
+            </strong>
+            <small>{formatCount(summary.closed_count)} закрытых сделок</small>
+          </div>
+          <div>
+            <span>Винрейт</span>
+            <strong>
+              {summary.win_rate_percent === null || summary.win_rate_percent === undefined
+                ? "--"
+                : `${Number(summary.win_rate_percent).toFixed(0)}%`}
+            </strong>
+            <small>по закрытым в плюс</small>
+          </div>
+        </div>
+      )}
+      <div className="position-toolbar">
+        <button className="outline-btn" onClick={() => setIncludeClosed(value => !value)}>
           {includeClosed ? "Только открытые" : "Показать закрытые"}
         </button>
       </div>
-
-      {items.length === 0 ? (
-        <p className="muted-copy">
-          Пока пусто. Добавьте покупку, и продукт начнёт считать вашу прибыль, а не только цены рынка.
-        </p>
-      ) : (
+      {loading ? (
+        <LoadingState />
+      ) : items.length ? (
         <div className="table-card">
           {items.map(position => (
-            <div className={position.is_open ? "position-row" : "position-row closed"} key={position.id}>
-              <button className="gift-cell" onClick={() => onOpenGift?.(position.gift_id)}>
-                <GiftImage src={position.image_url} alt={position.name ?? "gift"} className="tiny" />
-                <div>
-                  <strong>
-                    {position.name ?? `Gift #${position.gift_id}`}
-                    {position.gift_number ? ` #${position.gift_number}` : ""}
-                  </strong>
-                  <small>
-                    {position.model ?? position.collection_name ?? ""} · {position.days_held} дн в позиции
-                  </small>
-                </div>
+            <div className={`position-row ${position.is_open ? "" : "closed"}`} key={position.id}>
+              <GiftImage src={position.image_url} alt={title(position)} />
+              <button className="position-name" onClick={() => onOpen(position.gift_id)}>
+                <strong>{title(position)}</strong>
+                <small>{entry(position)}</small>
               </button>
-              <div>
-                <b>{formatTon(position.buy_price_ton)}</b>
-                <small>вход{position.buy_marketplace ? ` · ${position.buy_marketplace}` : ""}</small>
-              </div>
-              <div>
-                <b>{position.valued ? formatTon(position.net_value_ton) : "нет цены"}</b>
+              <div className="position-col">
+                <b>
+                  {position.is_open
+                    ? position.valued
+                      ? formatTon(position.net_value_ton)
+                      : "нет цены"
+                    : formatTon(position.sell_price_ton)}
+                </b>
                 <small>
-                  {position.is_open ? "на руки сейчас" : `продано ${formatTon(position.sell_price_ton)}`}
+                  {position.is_open
+                    ? position.valued
+                      ? `floor ${formatTon(position.floor_ton)} минус ${Number(position.exit_fee_percent)}%`
+                      : "ни одного активного лота"
+                    : `продано${position.sell_marketplace ? ` на ${position.sell_marketplace}` : ""}`}
                 </small>
               </div>
-              <div className="edge">
-                <strong className={tone(position.profit_ton)}>
-                  {position.valued ? formatTonDelta(position.profit_ton) : "--"}
-                </strong>
-                <small>{position.valued ? formatPercent(position.profit_percent) : "не оценить"}</small>
+              <div className="position-col">
+                {position.profit_ton === null || position.profit_ton === undefined ? (
+                  <span className="tag-unvalued">без оценки</span>
+                ) : (
+                  <>
+                    <b className={Number(position.profit_ton) >= 0 ? "trend-up" : "trend-down"}>
+                      {formatTonDelta(position.profit_ton)}
+                    </b>
+                    <small>{formatPercent(position.profit_percent) ?? ""}</small>
+                  </>
+                )}
               </div>
               <div className="position-actions">
                 {position.is_open ? (
                   closingId === position.id ? (
-                    <>
+                    <form className="position-close-form" onSubmit={event => void close(event, position)}>
                       <input
-                        inputMode="decimal"
+                        type="number"
+                        min="0"
+                        step="any"
+                        autoFocus
                         value={sellPrice}
                         onChange={event => setSellPrice(event.target.value)}
-                        placeholder="цена продажи"
+                        placeholder="Цена продажи"
                       />
-                      <button className="outline-btn" onClick={() => void close(position)}>
-                        <Check size={13} />
+                      <button className="outline-btn" disabled={busy}>
+                        {busy ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}
                       </button>
-                    </>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label="Отмена"
+                        onClick={() => setClosingId(null)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </form>
                   ) : (
                     <button
                       className="outline-btn"
                       onClick={() => {
                         setClosingId(position.id);
-                        setSellPrice(position.floor_ton ? String(Number(position.floor_ton)) : "");
+                        setSellPrice(position.net_value_ton ?? "");
                       }}
                     >
-                      <Briefcase size={13} /> Закрыть
+                      Продал
                     </button>
                   )
                 ) : (
-                  <button className="outline-btn" onClick={() => void reopenPosition(position.id).then(load)}>
-                    <Undo2 size={13} />
+                  <button
+                    className="icon-btn"
+                    aria-label="Вернуть в открытые"
+                    disabled={busy}
+                    onClick={() => void reopen(position)}
+                  >
+                    <RotateCcw size={15} />
                   </button>
                 )}
-                <button
-                  className="icon-btn"
-                  aria-label="Удалить позицию"
-                  onClick={() => void deletePosition(position.id).then(load)}
-                >
-                  <Trash2 size={14} />
+                <button className="icon-btn" aria-label="Удалить" onClick={() => void remove(position)}>
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
           ))}
         </div>
+      ) : (
+        <EmptyState
+          title="Позиций пока нет"
+          detail="Открой карточку подарка и нажми «Записал покупку»: цена подставится из текущего floor."
+        />
       )}
     </section>
   );

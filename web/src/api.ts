@@ -95,10 +95,10 @@ export type FeeSchedule = {
   marketplaces: MarketplaceFee[];
 };
 
-/** A lot the user actually owns, valued at what an exit would pay today.
+/** A lot the user actually owns, priced at what an exit would really pay.
  *
- * `valued` is false when nothing is listed for that gift: the row then shows
- * no price instead of carrying a stale one, and stays out of the totals.
+ * `valued` is false when nothing is listed for that gift: the row then says
+ * "no price" instead of quoting a number we do not have.
  */
 export type Position = {
   id: number;
@@ -139,7 +139,7 @@ export type PositionSummary = {
   realized_ton: string;
   win_rate_percent?: string | null;
 };
-export type PositionList = { data_mode: string; items: Position[]; summary: PositionSummary };
+export type PositionBook = { data_mode: string; items: Position[]; summary: PositionSummary };
 
 /** Dashboard numbers and spreads, both served from stored rows. */
 export const getOverview = () => request<OverviewStats>("/overview");
@@ -171,9 +171,9 @@ export const deleteWatch = (watchId: number) => request(`/sniper/watches/${watch
 export const getGiftLiquidity = (giftId: number) =>
   request<GiftLiquidity>(`/sniper/gifts/${giftId}/liquidity`);
 
-/** Positions: the only numbers the market cannot tell us, entered by hand. */
+/** Positions: the user's own book, with P&L against the live floor. */
 export const getPositions = (includeClosed = true) =>
-  request<PositionList>(`/positions?include_closed=${includeClosed}`);
+  request<PositionBook>(`/positions?include_closed=${includeClosed}`);
 export const createPosition = (payload: {
   gift_id: number;
   buy_price_ton: string;
@@ -181,14 +181,20 @@ export const createPosition = (payload: {
   opened_at?: string;
   note?: string;
 }) => request<Position>("/positions", { method: "POST", body: JSON.stringify(payload) });
-export const closePosition = (
+export const updatePosition = (
   positionId: number,
-  payload: { sell_price_ton: string; sell_marketplace?: string; closed_at?: string }
+  payload: {
+    buy_price_ton?: string;
+    buy_marketplace?: string;
+    opened_at?: string;
+    sell_price_ton?: string;
+    sell_marketplace?: string;
+    closed_at?: string;
+    note?: string;
+    reopen?: boolean;
+  }
 ) => request<Position>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify(payload) });
-export const reopenPosition = (positionId: number) =>
-  request<Position>(`/positions/${positionId}`, { method: "PATCH", body: JSON.stringify({ reopen: true }) });
-export const deletePosition = (positionId: number) =>
-  request(`/positions/${positionId}`, { method: "DELETE" });
+export const deletePosition = (positionId: number) => request(`/positions/${positionId}`, { method: "DELETE" });
 
 export const getWallets = () => request<{ items: WalletItem[] }>("/portfolio/wallets"); export const addWallet = (address: string, label?: string) => request<WalletItem>("/portfolio/wallets", { method: "POST", body: JSON.stringify({ address, label }) }); export const removeWallet = (walletId: number) => request(`/portfolio/wallets/${walletId}`, { method: "DELETE" });
 export const getPortfolioOverview = () => request<PortfolioOverview>("/portfolio/overview"); export const getPortfolioHistory = () => request<{ data_mode: string; points: PortfolioPoint[] }>("/portfolio/history");
