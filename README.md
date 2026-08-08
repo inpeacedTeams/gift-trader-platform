@@ -11,13 +11,18 @@ Market intelligence for Telegram NFT gifts on TON.
 
 ## Live market parsers
 
-The API currently has three independent live collectors:
+Active parsers are chosen with `MARKET_SOURCES` (default `tonnel,getgems`).
 
-- **Fragment**: reads the public gifts marketplace page and extracts current listing links and TON prices.
-- **Portals**: reads the marketplace API at `https://portal-market.com/api` and normalizes gift listings. The endpoint is configurable because the marketplace API is not an official stable public contract.
-- **GetGems**: reads collection NFT items through TONAPI and keeps only listings whose marketplace is GetGems.
+| Source | Credentials | Notes |
+| --- | --- | --- |
+| **Tonnel** | none | Public `pageGifts` endpoint, primary listing feed |
+| **GetGems** | optional `TONAPI_TOKEN` | Collection items through TONAPI, filtered to GetGems sales |
+| **Portals** | `PORTALS_AUTH_DATA` | Telegram mini app initData, expires within hours |
+| **Fragment** | none | HTML scrape, breaks whenever the page layout changes |
 
-TONAPI is an additional source and verification layer, not the only marketplace parser. If a source is unavailable or changes its response, the API returns `status=unavailable` with the source error. It never invents listings or silently falls back to demo data.
+A source that cannot deliver fails loudly: the API returns `status=unavailable`
+with the reason on `/api/source-status`. It never invents listings and never
+falls back to demo data.
 
 ## Run locally
 
@@ -25,11 +30,20 @@ TONAPI is an additional source and verification layer, not the only marketplace 
 git clone https://github.com/inpeacedTeams/gift-trader-platform.git
 cd gift-trader-platform
 cp .env.example .env
-# Set DATABASE_URL, JWT_SECRET, TELEGRAM_BOT_TOKEN, and TONAPI_TOKEN
 
+docker compose up -d --build
+curl -X POST localhost:8000/api/jobs/market-sync
+curl localhost:8000/api/source-status
+```
+
+No credentials are required for the default setup. Add `TONAPI_TOKEN` to raise
+GetGems rate limits, and `PORTALS_AUTH_DATA` if you enable the Portals source.
+
+For backend development without Docker:
+
+```bash
 docker compose up -d postgres
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.lock
 uvicorn app.main:app --reload
 ```
@@ -56,3 +70,5 @@ All direct Python dependencies are pinned in `pyproject.toml` and `requirements.
 - `GET /api/portfolio/history`: persisted portfolio valuation history
 - `GET /api/portfolio/resolver-summary`: unknown NFT resolver telemetry
 - `GET /api/alerts/events`: user alert events
+- `GET /api/source-status`: per source health and failure reasons
+- `POST /api/jobs/market-sync`: trigger a sync without waiting for the scheduler
