@@ -3,28 +3,27 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import AiUnavailable, OpenRouterClient
-from app.ai.context import gift_context, market_context
-from app.ai.prompts import SYSTEM_PROMPT, VERDICT_PROMPT
-from app.ai.quota import DailyQuota
+from app.ai.context import gift_context, market_overview
+from app.ai.limits import RateLimiter
+from app.ai.prompts import ASK_PROMPT, VERDICT_PROMPT
 from app.core.auth import current_user
 from app.core.config import get_settings
 from app.db.models import User
 from app.db.session import get_session
 
 router = APIRouter(prefix="/ai", tags=["ai"])
-settings = get_settings()
-client = OpenRouterClient(settings)
-quota = DailyQuota(settings.ai_daily_limit_per_user)
+limiter = RateLimiter(get_settings().ai_requests_per_hour)
 
 
-class Question(BaseModel):
+class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    gift_id: int | None = None
 
 
 class AiAnswer(BaseModel):
     answer: str
     model: str
-    remaining_today: int
+    grounded_in: str = "persisted market data"
 
 
 class AiStatus(BaseModel):
@@ -32,33 +31,42 @@ class AiStatus(BaseModel):
     model: str | None = None
 
 
-def _guard(user: User) -> None:
-    if not client.enabled:
-        raise HTTPException(503, "Assistant is not configured")
-    if not quota.consume(user.id):
-        raise HTTPException(429, "Daily assistant limit reached, try again tomorrow")
+def _client() -> OpenRouterClient:
+    client = OpenRouterClient()
+    if not client.configured:
+        raise HTTPException(503, "AI is not configured: set OPENROUTER_API_KEY")
+    return client
 
 
 @router.get("/status", response_model=AiStatus)
-async def status() -> AiStatus:
-    return AiStatus(enabled=client.enabled, model=settings.openrouter_model if client.enabled else None)
+async def status():
+    """Lets the UI hide the assistant instead of showing a dead button."""
+    settings = get_settings()
+    enabled = bool(settings.openrouter_api_key)
+    return AiStatus(enabled=enabled, model=settings.openrouter_model if enabled else None)
 
 
 @router.post("/ask", response_model=AiAnswer)
 async def ask(
-    body: Question,
+    body: AskRequest,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Answer a market question strictly from what we stored."""
-    _guard(user)
-    context = await market_context(session)
-    prompt = f"ДАННЫЕ РЫНКА:\n{context}\n\nВОПРОС: {body.question.strip()}"
+    """Answer a market question using stored data only."""
+    client = _client()
+    if not limiter.allow(user.id):
+        raise HTTPException(429, "AI request limit reached for this hour")
+    context = await market_overview(session)
+    if body.gift_id is not None:
+        focus = await gift_context(session, body.gift_id)
+        if focus:
+            context = f"{focus}\n\nWIDER MARKET:\n{context}"
+    prompt = f"MARKET DATA:\n{context}\n\nQUESTION:\n{body.question.strip()}"
     try:
-        answer = await client.complete(system=SYSTEM_PROMPT, user=prompt)
+        reply = await client.complete(system=ASK_PROMPT, user=prompt)
     except AiUnavailable as exc:
-        raise HTTPException(503, exc.reason) from exc
-    return AiAnswer(answer=answer.text, model=answer.model, remaining_today=quota.remaining(user.id))
+        raise HTTPException(503, str(exc)) from exc
+    return AiAnswer(answer=reply.content, model=reply.model)
 
 
 @router.get("/gifts/{gift_id}/verdict", response_model=AiAnswer)
@@ -67,13 +75,19 @@ async def verdict(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Short read on one gift: worth buying, fair, or overpriced."""
-    _guard(user)
+    """A short read on whether this gift is worth buying at the current floor."""
+    client = _client()
+    if not limiter.allow(user.id):
+        raise HTTPException(429, "AI request limit reached for this hour")
     context = await gift_context(session, gift_id)
     if context is None:
         raise HTTPException(404, "Gift not found")
     try:
-        answer = await client.complete(system=VERDICT_PROMPT, user=context, max_tokens=300)
+        reply = await client.complete(
+            system=VERDICT_PROMPT,
+            user=f"MARKET DATA:\n{context}",
+            max_tokens=320,
+        )
     except AiUnavailable as exc:
-        raise HTTPException(503, exc.reason) from exc
-    return AiAnswer(answer=answer.text, model=answer.model, remaining_today=quota.remaining(user.id))
+        raise HTTPException(503, str(exc)) from exc
+    return AiAnswer(answer=reply.content, model=reply.model)

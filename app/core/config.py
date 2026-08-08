@@ -13,6 +13,8 @@ DEFAULT_GIFT_COLLECTIONS = ",".join(
 )
 # Sources that need no credentials. Add "portals" or "fragment" once configured.
 DEFAULT_MARKET_SOURCES = "tonnel,getgems"
+# Free router: OpenRouter picks an available zero cost model per request.
+DEFAULT_AI_MODEL = "openrouter/free"
 
 
 class Settings(BaseSettings):
@@ -24,6 +26,12 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_ttl_seconds: int = 604800
     telegram_bot_token: str | None = None
+    openrouter_api_key: str | None = None
+    openrouter_model: str = DEFAULT_AI_MODEL
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
+    ai_timeout_seconds: float = 45.0
+    ai_requests_per_hour: int = 30
     tonapi_base_url: str = "https://tonapi.io"
     tonapi_token: str | None = None
     tonnel_endpoint: str = "https://gifts2.tonnel.network/api/pageGifts"
@@ -42,14 +50,6 @@ class Settings(BaseSettings):
     trade_sync_enabled: bool = True
     portfolio_sync_interval_seconds: int = 300
     portfolio_sync_enabled: bool = True
-    # AI assistant. The key is server side only and never reaches the browser.
-    openrouter_api_key: str | None = None
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    # Free router: OpenRouter picks a zero cost model that fits the request.
-    openrouter_model: str = "openrouter/free"
-    openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
-    openrouter_timeout_seconds: float = 45.0
-    ai_daily_limit_per_user: int = 40
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
