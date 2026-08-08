@@ -28,10 +28,11 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     openrouter_api_key: str | None = None
     openrouter_model: str = DEFAULT_AI_MODEL
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
-    ai_timeout_seconds: float = 45.0
+    openrouter_timeout_seconds: float = 45.0
+    # The key is ours, so every endpoint that spends it is capped.
     ai_requests_per_hour: int = 30
+    ai_verdict_cache_seconds: int = 600
     tonapi_base_url: str = "https://tonapi.io"
     tonapi_token: str | None = None
     tonnel_endpoint: str = "https://gifts2.tonnel.network/api/pageGifts"

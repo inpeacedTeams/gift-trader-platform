@@ -6,8 +6,8 @@ class RateLimiter:
     """Per user sliding window.
 
     The OpenRouter key is ours, so an unbounded endpoint is an unbounded
-    bill. In memory is enough for a single instance; move to Redis when
-    the API runs on more than one process.
+    bill. In memory is enough for a single instance; move to Redis when the
+    API runs on more than one process.
     """
 
     def __init__(self, limit: int, window_seconds: int = 3600):
@@ -15,16 +15,23 @@ class RateLimiter:
         self.window = window_seconds
         self._hits: dict[int, deque[float]] = defaultdict(deque)
 
-    def check(self, user_id: int) -> tuple[bool, int]:
-        """Returns whether the call is allowed and how many remain."""
+    def _prune(self, user_id: int) -> deque[float]:
         now = time.monotonic()
         hits = self._hits[user_id]
         while hits and now - hits[0] > self.window:
             hits.popleft()
+        return hits
+
+    def remaining(self, user_id: int) -> int:
+        return max(0, self.limit - len(self._prune(user_id)))
+
+    def allow(self, user_id: int) -> bool:
+        """Records a call and reports whether it was within the quota."""
+        hits = self._prune(user_id)
         if len(hits) >= self.limit:
-            return False, 0
-        hits.append(now)
-        return True, self.limit - len(hits)
+            return False
+        hits.append(time.monotonic())
+        return True
 
 
 class TTLCache:
