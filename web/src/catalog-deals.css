@@ -1,0 +1,57 @@
+/* Underpriced signalling inside the catalog.
+   Separate from deals.css, which styles the standalone Deals screen. */
+.gift-card-media {
+  position: relative;
+}
+
+.deal-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  border: 1px solid rgba(131, 231, 179, 0.4);
+  background: rgba(12, 32, 24, 0.88);
+  color: #83e7b3;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.deal-badge.inline {
+  position: static;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0c1118;
+  color: #8b98a9;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.toggle-chip:hover {
+  border-color: #35435a;
+  color: #c3cddb;
+}
+
+.toggle-chip.on {
+  border-color: rgba(131, 231, 179, 0.45);
+  background: rgba(131, 231, 179, 0.1);
+  color: #83e7b3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle-chip {
+    transition: none;
+  }
+}
