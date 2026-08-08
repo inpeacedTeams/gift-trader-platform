@@ -3,6 +3,7 @@ from .gifts import GiftRepository
 from .market_snapshot import MarketSnapshotRepository
 from .price_history import PriceHistoryRepository
 from .source_status import SourceStatusRepository
+from .trades import TradeRepository
 
 __all__ = [
     "CollectionRepository",
@@ -10,4 +11,5 @@ __all__ = [
     "MarketSnapshotRepository",
     "PriceHistoryRepository",
     "SourceStatusRepository",
+    "TradeRepository",
 ]

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     tonapi_base_url: str = "https://tonapi.io"
     tonapi_token: str | None = None
     tonnel_endpoint: str = "https://gifts2.tonnel.network/api/pageGifts"
+    tonnel_history_endpoint: str = "https://gifts2.tonnel.network/api/saleHistory"
+    tonnel_auth_data: str | None = None
     portals_endpoint: str = "https://portals-market.com/api/nfts/search"
     portals_auth_data: str | None = None
     getgems_collection_addresses: str = DEFAULT_GIFT_COLLECTIONS
@@ -36,6 +38,8 @@ class Settings(BaseSettings):
     source_backoff_seconds: float = 0.5
     market_sync_interval_seconds: int = 300
     market_sync_enabled: bool = True
+    trade_sync_interval_seconds: int = 900
+    trade_sync_enabled: bool = True
     portfolio_sync_interval_seconds: int = 300
     portfolio_sync_enabled: bool = True
     model_config = SettingsConfigDict(
