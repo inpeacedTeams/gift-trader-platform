@@ -50,6 +50,15 @@ class GiftPage(BaseModel):
     has_next: bool
 
 
+class WatchlistCard(GiftCard):
+    saved_at: datetime
+
+
+class WatchlistPage(BaseModel):
+    data_mode: str = "persisted"
+    items: list[WatchlistCard]
+
+
 class GiftListing(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -82,6 +91,24 @@ class GiftHistory(BaseModel):
     data_mode: str = "persisted"
     gift_id: int
     points: list[PricePoint]
+
+
+class SourceStatusCard(BaseModel):
+    """Health of one collector, as recorded by the last crawl."""
+
+    marketplace: str
+    status: str
+    configured: bool = True
+    stale: bool = False
+    listings_count: int = 0
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_error: str | None = None
+
+
+class SourceStatusList(BaseModel):
+    data_mode: str = "live-only"
+    sources: list[SourceStatusCard]
 
 
 class MarketEventCard(BaseModel):

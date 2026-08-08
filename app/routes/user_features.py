@@ -5,7 +5,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import current_user
 from app.db.models import AlertEvent, AlertRule, Gift, PortfolioWallet, User, WatchlistItem
+from app.db.repositories import WatchlistRepository
 from app.db.session import get_session
+from app.schemas.frontend import WatchlistCard, WatchlistPage
 
 router = APIRouter(tags=["user-features"])
 class WalletCreate(BaseModel):
@@ -20,9 +22,15 @@ class AlertUpdate(BaseModel):
 async def _gift_exists(session: AsyncSession, gift_id: int) -> bool:
     return await session.scalar(select(Gift.id).where(Gift.id == gift_id)) is not None
 
-@router.get("/watchlist")
+@router.get("/watchlist", response_model=WatchlistPage)
 async def watchlist(user: User = Depends(current_user), session: AsyncSession = Depends(get_session)):
-    rows = (await session.scalars(select(WatchlistItem).where(WatchlistItem.user_id == user.id).order_by(WatchlistItem.created_at.desc()))).all(); return {"items": [{"id": row.id, "gift_id": row.gift_id, "created_at": row.created_at} for row in rows]}
+    """Saved gifts as full cards, priced from the live book."""
+    repository = WatchlistRepository(session)
+    rows = await repository.cards(user.id)
+    venues = await repository.best_venues([row["id"] for row in rows])
+    return WatchlistPage(
+        items=[WatchlistCard(**row, best_marketplace=venues.get(row["id"])) for row in rows]
+    )
 @router.post("/watchlist/{gift_id}", status_code=201)
 async def add_watchlist(gift_id: int, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)):
     if not await _gift_exists(session, gift_id): raise HTTPException(404, "Gift not found")
