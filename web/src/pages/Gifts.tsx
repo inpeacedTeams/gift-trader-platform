@@ -7,6 +7,7 @@ import { GiftImage } from "../components/GiftImage";
 import { Select } from "../components/Select";
 import { formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
+import "../catalog-deals.css";
 
 const MARKET_OPTIONS = [
   { value: "", label: "All marketplaces" },
