@@ -4,15 +4,24 @@ import { getGifts } from "../api";
 import type { GiftCard as GiftCardType } from "../types";
 import { EmptyState, ErrorState, LoadingState } from "../components/State";
 import { GiftImage } from "../components/GiftImage";
+import { Select } from "../components/Select";
 import { formatCount, formatPercent, formatTon } from "../format";
 import "../gifts.css";
+
+const MARKET_OPTIONS = [
+  { value: "", label: "All marketplaces" },
+  { value: "tonnel", label: "Tonnel" },
+  { value: "getgems", label: "GetGems" },
+  { value: "portals", label: "Portals" },
+  { value: "fragment", label: "Fragment" },
+];
 
 function Card({ gift, onOpen }: { gift: GiftCardType; onOpen: (id: number) => void }) {
   const change = formatPercent(gift.change_percent);
   const rising = Number(gift.change_percent ?? 0) >= 0;
   const title = gift.name ?? gift.canonical_id.slice(0, 18);
   return (
-    <button className="gift-card" onClick={() => onOpen(gift.id)}>
+    <button className="gift-card lift" onClick={() => onOpen(gift.id)}>
       <GiftImage src={gift.image_url} alt={title} />
       <div className="gift-card-body">
         <strong>{title}</strong>
@@ -34,6 +43,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
   const [items, setItems] = useState<GiftCardType[]>([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
+  const [marketplace, setMarketplace] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -43,7 +53,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getGifts({ page, search: search || undefined });
+      const data = await getGifts({ page, search: search || undefined, marketplace: marketplace || undefined });
       setItems(data.items);
       setTotal(data.total);
       setHasNext(data.has_next);
@@ -57,7 +67,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
 
   useEffect(() => {
     void load();
-  }, [page, search]);
+  }, [page, search, marketplace]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -79,6 +89,15 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
       <form className="gift-search" onSubmit={submit}>
         <Search size={16} />
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name, model or identity" />
+        <Select
+          label="Marketplace"
+          value={marketplace}
+          onChange={next => {
+            setPage(1);
+            setMarketplace(next);
+          }}
+          options={MARKET_OPTIONS}
+        />
         <button className="outline-btn">Search</button>
       </form>
       {error ? (
@@ -87,7 +106,7 @@ export function Gifts({ onOpen }: { onOpen: (id: number) => void }) {
         <LoadingState />
       ) : items.length ? (
         <>
-          <div className="gift-grid">
+          <div className="gift-grid stagger">
             {items.map(gift => (
               <Card key={gift.id} gift={gift} onOpen={onOpen} />
             ))}

@@ -1,28 +1,21 @@
 import { FormEvent, useEffect, useState } from "react";
 import { BellRing, Check, Plus, SlidersHorizontal, Trash2, LoaderCircle, Pause, Play } from "lucide-react";
-import {
-  createAlertRule,
-  deleteAlertRule,
-  getAlertEvents,
-  getAlertRules,
-  markAlertRead,
-  updateAlertRule,
-} from "../api";
+import { createAlertRule, deleteAlertRule, getAlertEvents, getAlertRules, markAlertRead, updateAlertRule } from "../api";
 import { EmptyState } from "../components/State";
-import { Select } from "../components/Select";
+import { Select, type SelectGroup } from "../components/Select";
 import { formatCount } from "../format";
 
 type Rule = { id: number; gift_id?: number | null; rule_type: string; threshold: string; is_active: boolean };
 type Event = { id: number; message: string; is_read: boolean; created_at: string };
 
-const RULE_GROUPS = [
+const RULE_GROUPS: SelectGroup[] = [
   {
     label: "Gift market",
     options: [
       { value: "price_below", label: "Gift price below", hint: "Floor drops under your threshold" },
       { value: "price_above", label: "Gift price above", hint: "Floor climbs over your threshold" },
       { value: "change_percent", label: "Gift change above %", hint: "Move between two snapshots" },
-      { value: "listed_below", label: "Listing below", hint: "A single lot appears under price" },
+      { value: "listed_below", label: "Listing below", hint: "Any single listing under price" },
     ],
   },
   {
@@ -35,7 +28,7 @@ const RULE_GROUPS = [
   },
 ];
 
-const LABELS: Record<string, string> = {
+const RULE_LABELS: Record<string, string> = {
   price_below: "Gift price below",
   price_above: "Gift price above",
   change_percent: "Gift change above",
@@ -54,6 +47,7 @@ export function Alerts({ available }: { available: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isPortfolioRule = ruleType.startsWith("portfolio_");
 
   const load = async () => {
     setLoading(true);
@@ -68,12 +62,9 @@ export function Alerts({ available }: { available: boolean }) {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     void load();
   }, []);
-
-  const portfolioRule = ruleType.startsWith("portfolio_");
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -82,7 +73,7 @@ export function Alerts({ available }: { available: boolean }) {
       const created = (await createAlertRule({
         rule_type: ruleType,
         threshold,
-        ...(!portfolioRule && giftId.trim() ? { gift_id: Number(giftId) } : {}),
+        ...(!isPortfolioRule && giftId.trim() ? { gift_id: Number(giftId) } : {}),
       })) as Rule;
       setRules(items => [created, ...items]);
       setThreshold("10");
@@ -94,7 +85,6 @@ export function Alerts({ available }: { available: boolean }) {
       setSaving(false);
     }
   };
-
   const toggle = async (rule: Rule) => {
     try {
       const result = (await updateAlertRule(rule.id, !rule.is_active)) as { is_active: boolean };
@@ -103,7 +93,6 @@ export function Alerts({ available }: { available: boolean }) {
       setError(e instanceof Error ? e.message : "Could not update alert");
     }
   };
-
   const remove = async (id: number) => {
     try {
       await deleteAlertRule(id);
@@ -112,7 +101,6 @@ export function Alerts({ available }: { available: boolean }) {
       setError(e instanceof Error ? e.message : "Could not delete alert");
     }
   };
-
   const read = async (event: Event) => {
     if (event.is_read) return;
     try {
@@ -131,8 +119,7 @@ export function Alerts({ available }: { available: boolean }) {
           <h2>Alerts</h2>
         </div>
         <span className="fresh">
-          {formatCount(rules.filter(rule => rule.is_active).length)} active ·{" "}
-          {formatCount(events.filter(event => !event.is_read).length)} unread
+          {formatCount(rules.filter(rule => rule.is_active).length)} active · {formatCount(events.filter(event => !event.is_read).length)} unread
         </span>
       </div>
       <div className="alert-setup">
@@ -145,27 +132,17 @@ export function Alerts({ available }: { available: boolean }) {
       </div>
       {error && <div className="notice error">{error}</div>}
       <form className="alert-form" onSubmit={submit}>
-        <Select label="Rule" value={ruleType} onChange={setRuleType} groups={RULE_GROUPS} />
+        <label>
+          Rule
+          <Select label="Alert rule" value={ruleType} onChange={setRuleType} groups={RULE_GROUPS} />
+        </label>
         <label>
           Threshold
-          <input
-            type="number"
-            min="0.000000001"
-            step="any"
-            value={threshold}
-            onChange={e => setThreshold(e.target.value)}
-            required
-          />
+          <input type="number" min="0.000000001" step="any" value={threshold} onChange={e => setThreshold(e.target.value)} required />
         </label>
         <label>
           Gift ID <span>(optional for gift rules)</span>
-          <input
-            inputMode="numeric"
-            disabled={portfolioRule}
-            value={giftId}
-            onChange={e => setGiftId(e.target.value.replace(/\D/g, ""))}
-            placeholder="All gifts"
-          />
+          <input inputMode="numeric" disabled={isPortfolioRule} value={giftId} onChange={e => setGiftId(e.target.value.replace(/\D/g, ""))} placeholder="All gifts" />
         </label>
         <button className="outline-btn" disabled={saving}>
           {saving ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />} Create alert
@@ -177,24 +154,19 @@ export function Alerts({ available }: { available: boolean }) {
           <span>Loading alerts...</span>
         </div>
       ) : rules.length ? (
-        <div className="alert-list">
+        <div className="alert-list stagger">
           {rules.map(rule => (
             <div className={`alert-row ${rule.is_active ? "" : "paused"}`} key={rule.id}>
-              <button
-                className="status-toggle"
-                aria-label={rule.is_active ? "Pause alert" : "Resume alert"}
-                onClick={() => void toggle(rule)}
-              >
+              <button className="status-toggle" aria-label={rule.is_active ? "Pause alert" : "Resume alert"} onClick={() => void toggle(rule)}>
                 {rule.is_active ? <Pause size={11} /> : <Play size={11} />}
               </button>
               <div>
                 <strong>
-                  {LABELS[rule.rule_type] ?? rule.rule_type} {rule.threshold}
+                  {RULE_LABELS[rule.rule_type] ?? rule.rule_type} {rule.threshold}
                   {rule.rule_type.includes("percent") ? "%" : " TON"}
                 </strong>
                 <small>
-                  {rule.gift_id ? `Gift #${rule.gift_id}` : "All portfolio / verified gifts"} ·{" "}
-                  {rule.is_active ? "active" : "paused"}
+                  {rule.gift_id ? `Gift #${rule.gift_id}` : "All portfolio / verified gifts"} · {rule.is_active ? "active" : "paused"}
                 </small>
               </div>
               <button className="icon-btn" aria-label="Delete alert" onClick={() => void remove(rule.id)}>
@@ -204,14 +176,7 @@ export function Alerts({ available }: { available: boolean }) {
           ))}
         </div>
       ) : (
-        <EmptyState
-          title="No alerts configured"
-          detail={
-            available
-              ? "Create a rule to watch the live market."
-              : "Sign in through Telegram to create a private alert."
-          }
-        />
+        <EmptyState title="No alerts configured" detail={available ? "Create a rule to watch the live market." : "Sign in through Telegram to create a private alert."} />
       )}
       <div className="events-section">
         <div className="section-head">
@@ -222,11 +187,7 @@ export function Alerts({ available }: { available: boolean }) {
         </div>
         {events.length ? (
           events.map(item => (
-            <button
-              className={`event-row ${item.is_read ? "read" : "unread"}`}
-              key={item.id}
-              onClick={() => void read(item)}
-            >
+            <button className={`event-row ${item.is_read ? "read" : "unread"}`} key={item.id} onClick={() => void read(item)}>
               <span className={item.is_read ? "event-dot read" : "event-dot"} />
               <div>
                 <strong>{item.message}</strong>
