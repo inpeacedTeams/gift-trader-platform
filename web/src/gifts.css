@@ -1,0 +1,276 @@
+.gift-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gift-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.94rem;
+}
+
+.gift-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.gift-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.gift-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.gift-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gift-image.placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  opacity: 0.35;
+}
+
+.gift-image.large {
+  width: 168px;
+  height: 168px;
+  flex: none;
+}
+
+.gift-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gift-card-body strong {
+  font-size: 0.98rem;
+}
+
+.gift-card-body small,
+.gift-card-meta {
+  font-size: 0.78rem;
+  opacity: 0.6;
+}
+
+.gift-card-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.gift-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 22px;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.back-btn:hover {
+  opacity: 1;
+}
+
+.gift-hero {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gift-hero-copy h2 {
+  margin: 4px 0 6px;
+}
+
+.gift-hero-copy em {
+  opacity: 0.5;
+  font-style: normal;
+}
+
+.gift-hero-price {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.gift-hero-price strong {
+  font-size: 1.6rem;
+}
+
+.price-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chart-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.chart-head strong {
+  display: block;
+  font-size: 1.25rem;
+}
+
+.chart-head small {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.chart-body {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  height: 180px;
+}
+
+.chart-body svg {
+  flex: 1;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-floor {
+  stroke: #4ade80;
+}
+
+.chart-median {
+  stroke: rgba(255, 255, 255, 0.45);
+}
+
+.chart-axis-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.5;
+}
+
+.chart-axis-x {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.chart-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-floor {
+  background: #4ade80;
+}
+
+.dot-median {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.chart-empty {
+  padding: 34px 0;
+  text-align: center;
+  font-size: 0.85rem;
+  opacity: 0.55;
+}
+
+.listing-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.listing-row:last-child {
+  border-bottom: none;
+}
+
+.listing-row.stale {
+  opacity: 0.45;
+}
+
+.listing-row small {
+  display: block;
+  font-size: 0.74rem;
+  opacity: 0.6;
+}
+
+.listing-action {
+  justify-self: end;
+}
+
+.listing-action a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}

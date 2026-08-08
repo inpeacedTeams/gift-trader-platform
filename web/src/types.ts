@@ -1,6 +1,35 @@
-export type Marketplace = "fragment" | "portals" | "getgems" | "tonapi";
+export type Marketplace = "fragment" | "portals" | "getgems" | "tonnel" | "tonapi";
 export type Listing = { marketplace: Marketplace; listing_id: string; gift_id: string; canonical_id?: string | null; collection_id?: string | null; collection_name?: string | null; name?: string | null; price_ton: string; url?: string | null; observed_at: string };
 export type Snapshot = { marketplace: Marketplace; observed_at: string; listings: Listing[] };
 export type Opportunity = { gift_key: string; buy_marketplace: Marketplace; sell_marketplace: Marketplace; buy_listing_id: string; sell_listing_id: string; buy_price_ton: string; sell_price_ton: string; profit_ton: string; profit_percent: string };
 export type MarketResponse = { data_mode: "live-only"; markets: Snapshot[] };
 export type ArbitrageResponse = { data_mode: "live-only"; opportunities: Opportunity[]; unavailable: { marketplace: string; reason: string }[] };
+
+export type GiftCard = {
+  id: number;
+  canonical_id: string;
+  collection_name?: string | null;
+  name?: string | null;
+  model?: string | null;
+  gift_number?: number | null;
+  image_url?: string | null;
+  floor_ton?: string | null;
+  median_ton?: string | null;
+  listings_count: number;
+  change_percent?: string | null;
+};
+export type GiftPage = { data_mode: string; items: GiftCard[]; page: number; page_size: number; total: number; has_next: boolean };
+export type GiftListing = {
+  id: number;
+  marketplace: string;
+  external_id: string;
+  price_ton: string;
+  seller?: string | null;
+  url?: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  active: boolean;
+};
+export type GiftDetail = GiftCard & { listings: GiftListing[]; sources: string[] };
+export type PricePoint = { observed_at: string; marketplace: string; floor_ton?: string | null; median_ton?: string | null; volume_ton?: string | null; listings_count: number };
+export type GiftHistory = { data_mode: string; gift_id: number; points: PricePoint[] };
