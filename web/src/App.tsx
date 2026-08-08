@@ -5,20 +5,20 @@ import {
   authenticateTelegram,
   getAiStatus,
   getArbitrage,
-  getMarkets,
   getMe,
+  getOverview,
   getWatchlist,
   removeFromWatchlist,
   triggerMarketSync,
   type User,
 } from "./api";
 import { clearToken } from "./auth";
-import type { ArbitrageResponse, MarketResponse } from "./types";
+import type { ArbitrageOpportunity, OverviewStats } from "./types";
 import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
 import { LiveFeed } from "./components/LiveFeed";
 import { Movers } from "./components/Movers";
-import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
+import { formatAgo, formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
 import { Analyst } from "./pages/Analyst";
 import { Collections } from "./pages/Collections";
 import { Deals } from "./pages/Deals";
@@ -37,8 +37,8 @@ export default function App() {
   const [view, setView] = useState<View>("overview");
   const [selectedGift, setSelectedGift] = useState<number | null>(null);
   const [collection, setCollection] = useState<CollectionFilter | null>(null);
-  const [markets, setMarkets] = useState<MarketResponse | null>(null);
-  const [arbitrage, setArbitrage] = useState<ArbitrageResponse | null>(null);
+  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [topSpreads, setTopSpreads] = useState<ArbitrageOpportunity[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -46,15 +46,16 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Reads stored data only. Crawling happens on the worker, not on page load. */
   const refresh = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [marketData, arbitrageData] = await Promise.all([getMarkets(), getArbitrage()]);
-      setMarkets(marketData);
-      setArbitrage(arbitrageData);
+      const [overview, spreads] = await Promise.all([getOverview(), getArbitrage(0, 5)]);
+      setStats(overview);
+      setTopSpreads(spreads.items);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Live API unavailable");
+      setError(e instanceof Error ? e.message : "API unavailable");
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ export default function App() {
     setSyncing(true);
     try {
       await triggerMarketSync();
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      await new Promise(resolve => setTimeout(resolve, 6000));
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start a market sync");
@@ -121,7 +122,6 @@ export default function App() {
     setSelectedGift(giftId);
     setView("gifts");
   };
-  const opportunities = arbitrage?.opportunities ?? [];
   const page =
     view === "collections" ? (
       <Collections onOpen={openCollection} />
@@ -149,7 +149,7 @@ export default function App() {
         />
       )
     ) : view === "opportunities" ? (
-      <Opportunities items={opportunities} />
+      <Opportunities onOpen={openGift} />
     ) : view === "watchlist" ? (
       <Watchlist
         authenticated={Boolean(user)}
@@ -159,13 +159,13 @@ export default function App() {
     ) : view === "portfolio" ? (
       <Portfolio />
     ) : view === "alerts" ? (
-      <Alerts available={opportunities.length > 0} onOpenGift={openGift} />
+      <Alerts available={topSpreads.length > 0} onOpenGift={openGift} />
     ) : view === "settings" ? (
       <Settings />
     ) : (
       <Overview
-        markets={markets}
-        opportunities={opportunities}
+        stats={stats}
+        spreads={topSpreads}
         loading={loading}
         onBrowse={() => changeView("collections")}
         onOpenGift={openGift}
@@ -179,10 +179,10 @@ export default function App() {
           <span>gift trader</span>
         </div>
         <div className="nav-label">Workspace</div>
-        <Nav view={view} onChange={changeView} count={opportunities.length} />
+        <Nav view={view} onChange={changeView} count={topSpreads.length} />
         <div className="sidebar-bottom">
           <div className="live-chip">
-            <i /> Live data only
+            <i /> {stats?.last_sync_at ? `Синк ${formatAgo(stats.last_sync_at)}` : "Ожидание синка"}
           </div>
         </div>
       </aside>
@@ -215,30 +215,24 @@ export default function App() {
             )}
           </div>
         </header>
-        {error && view !== "gifts" && view !== "collections" && view !== "deals" && view !== "analyst" ? (
-          <ErrorState detail={error} retry={() => void refresh()} />
-        ) : (
-          page
-        )}
+        {error && view === "overview" ? <ErrorState detail={error} retry={() => void refresh()} /> : page}
       </main>
     </div>
   );
 }
 function Overview({
-  markets,
-  opportunities,
+  stats,
+  spreads,
   loading,
   onBrowse,
   onOpenGift,
 }: {
-  markets: MarketResponse | null;
-  opportunities: ArbitrageResponse["opportunities"];
+  stats: OverviewStats | null;
+  spreads: ArbitrageOpportunity[];
   loading: boolean;
   onBrowse: () => void;
   onOpenGift: (giftId: number) => void;
 }) {
-  const listingCount = markets?.markets.reduce((sum, market) => sum + market.listings.length, 0) ?? 0;
-  const profit = opportunities.reduce((sum, item) => sum + Number(item.profit_ton), 0);
   return (
     <section className="page-section">
       <div className="hero-card">
@@ -257,26 +251,28 @@ function Overview({
         <div className="signal-orbit">
           <div className="orbit-ring" />
           <div className="orbit-core">
-            <span>{loading ? "--" : formatCount(opportunities.length)}</span>
-            <small>signals</small>
+            <span>{loading ? "--" : formatCount(stats?.events_24h ?? 0)}</span>
+            <small>changes 24h</small>
           </div>
         </div>
       </div>
       <div className="metric-grid">
         <div className="metric green">
-          <span>Net opportunity</span>
-          <strong>{loading ? "--" : formatTon(profit)}</strong>
-          <small>after marketplace fees</small>
+          <span>Active listings</span>
+          <strong>{loading ? "--" : formatCount(stats?.active_listings ?? 0)}</strong>
+          <small>{formatCount(stats?.listed_gifts ?? 0)} gifts on sale</small>
         </div>
         <div className="metric blue">
-          <span>Tracked listings</span>
-          <strong>{loading ? "--" : formatCount(listingCount)}</strong>
-          <small>from live sources</small>
+          <span>Tracked gifts</span>
+          <strong>{loading ? "--" : formatCount(stats?.tracked_gifts ?? 0)}</strong>
+          <small>{formatCount(stats?.collections ?? 0)} collections</small>
         </div>
         <div className="metric violet">
-          <span>Markets online</span>
-          <strong>{loading ? "--" : formatCount(markets?.markets.length ?? 0)}</strong>
-          <small>active sources</small>
+          <span>Sources online</span>
+          <strong>{loading ? "--" : formatCount(stats?.sources_online ?? 0)}</strong>
+          <small>
+            {stats?.last_sync_at ? `последний синк ${formatAgo(stats.last_sync_at)}` : "ждём первый проход"}
+          </small>
         </div>
       </div>
       <LiveFeed onOpen={onOpenGift} />
@@ -287,19 +283,23 @@ function Overview({
           <h2>Arbitrage radar</h2>
         </div>
         <span className="fresh">
-          <i /> {formatCount(opportunities.length)} verified signals
+          <i /> {formatCount(spreads.length)} spreads after fees
         </span>
       </div>
       <div className="table-card">
         {loading ? (
           <LoadingState />
-        ) : (
-          opportunities.slice(0, 5).map(item => (
-            <div className="table-row" key={`${item.buy_listing_id}-${item.sell_listing_id}`}>
+        ) : spreads.length ? (
+          spreads.map(item => (
+            <button
+              className="table-row"
+              key={`${item.gift_id}-${item.buy_marketplace}-${item.sell_marketplace}`}
+              onClick={() => onOpenGift(item.gift_id)}
+            >
               <div className="gift-cell">
                 <div className="gift-icon">✦</div>
                 <div>
-                  <strong>{item.gift_key.split(":").slice(-1)[0]}</strong>
+                  <strong>{item.name ?? item.collection_name ?? `Gift #${item.gift_id}`}</strong>
                   <small>
                     {item.buy_marketplace} → {item.sell_marketplace}
                   </small>
@@ -317,8 +317,12 @@ function Overview({
                 <strong>{formatTonDelta(item.profit_ton)}</strong>
                 <small>{formatPercent(item.profit_percent)}</small>
               </div>
-            </div>
+            </button>
           ))
+        ) : (
+          <p className="muted-copy" style={{ padding: 20 }}>
+            Спред появляется, когда один подарок торгуется минимум на двух площадках.
+          </p>
         )}
       </div>
     </section>
