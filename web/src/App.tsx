@@ -3,6 +3,7 @@ import { RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import {
   addToWatchlist,
   authenticateTelegram,
+  getAiStatus,
   getArbitrage,
   getMarkets,
   getMe,
@@ -17,7 +18,7 @@ import { Nav, type View } from "./components/Nav";
 import { LoadingState, ErrorState } from "./components/State";
 import { Movers } from "./components/Movers";
 import { formatCount, formatPercent, formatTon, formatTonDelta } from "./format";
-import { Assistant } from "./pages/Assistant";
+import { Analyst } from "./pages/Analyst";
 import { Collections } from "./pages/Collections";
 import { Deals } from "./pages/Deals";
 import { Gifts, type CollectionFilter } from "./pages/Gifts";
@@ -29,7 +30,7 @@ import { Alerts } from "./pages/Alerts";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
-const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", assistant: "Assistant", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
+const TITLES: Record<View, string> = { overview: "Market overview", collections: "Collections", gifts: "Gifts", deals: "Deals", analyst: "Analyst", opportunities: "Opportunities", watchlist: "Watchlist", portfolio: "Portfolio", alerts: "Alerts", settings: "Settings" };
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
@@ -39,6 +40,7 @@ export default function App() {
   const [arbitrage, setArbitrage] = useState<ArbitrageResponse | null>(null);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,9 @@ export default function App() {
 
   useEffect(() => {
     void refresh();
+    void getAiStatus()
+      .then(status => setAiEnabled(status.enabled))
+      .catch(() => setAiEnabled(false));
     void (async () => {
       try {
         const authenticated = await authenticateTelegram();
@@ -121,8 +126,8 @@ export default function App() {
       <Collections onOpen={openCollection} />
     ) : view === "deals" ? (
       <Deals onOpen={openGift} />
-    ) : view === "assistant" ? (
-      <Assistant authenticated={Boolean(user)} />
+    ) : view === "analyst" ? (
+      <Analyst enabled={aiEnabled} authenticated={Boolean(user)} />
     ) : view === "gifts" ? (
       selectedGift === null ? (
         <Gifts
@@ -138,6 +143,7 @@ export default function App() {
           giftId={selectedGift}
           onBack={() => setSelectedGift(null)}
           authenticated={Boolean(user)}
+          aiEnabled={aiEnabled}
           onOpenCollection={openCollection}
         />
       )
@@ -207,7 +213,7 @@ export default function App() {
             </button>
           </div>
         </header>
-        {error && view !== "gifts" && view !== "collections" && view !== "deals" && view !== "assistant" ? (
+        {error && view !== "gifts" && view !== "collections" && view !== "deals" && view !== "analyst" ? (
           <ErrorState detail={error} retry={() => void refresh()} />
         ) : (
           page

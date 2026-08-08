@@ -16,10 +16,11 @@ type Props = {
   giftId: number;
   onBack: () => void;
   authenticated?: boolean;
+  aiEnabled?: boolean;
   onOpenCollection?: (collection: { id: number; name?: string | null; chain_address: string }) => void;
 };
 
-export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollection }: Props) {
+export function GiftPage({ giftId, onBack, authenticated = false, aiEnabled = false, onOpenCollection }: Props) {
   const [gift, setGift] = useState<GiftDetail | null>(null);
   const [points, setPoints] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +88,7 @@ export function GiftPage({ giftId, onBack, authenticated = false, onOpenCollecti
           </div>
         </div>
       </div>
-      <AiVerdict giftId={gift.id} authenticated={authenticated} />
+      <AiVerdict giftId={gift.id} enabled={aiEnabled} authenticated={authenticated} />
       <QuickAlert giftId={gift.id} floorTon={gift.floor_ton} authenticated={authenticated} />
       <div className="metric-grid">
         <div className="metric green">
