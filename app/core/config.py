@@ -29,8 +29,7 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = None
     openrouter_model: str = DEFAULT_AI_MODEL
     openrouter_site_url: str = "https://github.com/inpeacedTeams/gift-trader-platform"
-    openrouter_timeout_seconds: float = 45.0
-    # The key is ours, so every endpoint that spends it is capped.
+    ai_timeout_seconds: float = 45.0
     ai_requests_per_hour: int = 30
     ai_verdict_cache_seconds: int = 600
     tonapi_base_url: str = "https://tonapi.io"

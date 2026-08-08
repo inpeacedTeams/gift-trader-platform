@@ -15,7 +15,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 _settings = get_settings()
 limiter = RateLimiter(_settings.ai_requests_per_hour)
-# A verdict is expensive and the market moves slower than a page refresh.
+# The market moves slower than a curious user clicks, so a verdict can be reused.
 verdict_cache = TTLCache(_settings.ai_verdict_cache_seconds)
 
 
@@ -27,9 +27,9 @@ class AskRequest(BaseModel):
 class AiAnswer(BaseModel):
     answer: str
     model: str
-    remaining: int
-    cached: bool = False
     grounded_in: str = "persisted market data"
+    remaining_today: int | None = None
+    cached: bool = False
 
 
 class AiStatus(BaseModel):
@@ -39,15 +39,17 @@ class AiStatus(BaseModel):
 
 
 def _client() -> OpenRouterClient:
-    client = OpenRouterClient()
+    client = OpenRouterClient(get_settings())
     if not client.configured:
         raise HTTPException(503, "AI is not configured: set OPENROUTER_API_KEY")
     return client
 
 
-def _spend(user: User) -> None:
-    if not limiter.allow(user.id):
+def _quota(user: User) -> int:
+    allowed, remaining = limiter.check(user.id)
+    if not allowed:
         raise HTTPException(429, "AI request limit reached for this hour")
+    return remaining
 
 
 @router.get("/status", response_model=AiStatus)
@@ -70,20 +72,18 @@ async def ask(
 ) -> AiAnswer:
     """Answer a market question using stored data only."""
     client = _client()
-    _spend(user)
+    remaining = _quota(user)
     context = await market_context(session)
     if body.gift_id is not None:
         focus = await gift_context(session, body.gift_id)
         if focus:
             context = f"{focus}\n\nWIDER MARKET:\n{context}"
+    prompt = f"MARKET DATA:\n{context}\n\nQUESTION:\n{body.question.strip()}"
     try:
-        reply = await client.complete(
-            system=CHAT_SYSTEM,
-            user=f"DATA:\n{context}\n\nQUESTION:\n{body.question.strip()}",
-        )
+        reply = await client.complete(system=CHAT_SYSTEM, user=prompt)
     except AssistantUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
-    return AiAnswer(answer=reply.text, model=reply.model, remaining=limiter.remaining(user.id))
+    return AiAnswer(answer=reply.text, model=reply.model, remaining_today=remaining)
 
 
 @router.get("/gifts/{gift_id}/verdict", response_model=AiAnswer)
@@ -96,23 +96,18 @@ async def verdict(
     client = _client()
     cached = verdict_cache.get(str(gift_id))
     if cached is not None:
-        return AiAnswer(
-            answer=cached,
-            model=get_settings().openrouter_model,
-            remaining=limiter.remaining(user.id),
-            cached=True,
-        )
+        return AiAnswer(answer=cached, model=client.model, cached=True)
     context = await gift_context(session, gift_id)
     if context is None:
         raise HTTPException(404, "Gift not found")
-    _spend(user)
+    remaining = _quota(user)
     try:
         reply = await client.complete(
             system=VERDICT_SYSTEM,
-            user=f"DATA:\n{context}",
+            user=f"MARKET DATA:\n{context}",
             max_tokens=320,
         )
     except AssistantUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
     verdict_cache.set(str(gift_id), reply.text)
-    return AiAnswer(answer=reply.text, model=reply.model, remaining=limiter.remaining(user.id))
+    return AiAnswer(answer=reply.text, model=reply.model, remaining_today=remaining)

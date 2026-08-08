@@ -35,14 +35,18 @@ class OpenRouterClient:
     def configured(self) -> bool:
         return bool(self.settings.openrouter_api_key)
 
+    @property
+    def model(self) -> str:
+        return self.settings.openrouter_model
+
     def _headers(self) -> dict[str, str]:
         headers = {
             "Authorization": f"Bearer {self.settings.openrouter_api_key}",
             "Content-Type": "application/json",
+            "X-Title": self.settings.app_name,
         }
         if self.settings.openrouter_site_url:
             headers["HTTP-Referer"] = self.settings.openrouter_site_url
-        headers["X-Title"] = self.settings.app_name
         return headers
 
     async def complete(
@@ -58,7 +62,7 @@ class OpenRouterClient:
                 "AI assistant is not configured: set OPENROUTER_API_KEY"
             )
         payload: dict[str, Any] = {
-            "model": self.settings.openrouter_model,
+            "model": self.model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -67,7 +71,7 @@ class OpenRouterClient:
             "temperature": temperature,
         }
         try:
-            async with httpx.AsyncClient(timeout=self.settings.openrouter_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=self.settings.ai_timeout_seconds) as client:
                 response = await client.post(API_URL, headers=self._headers(), json=payload)
         except httpx.HTTPError as exc:
             raise AssistantUnavailable(f"assistant request failed: {exc}") from exc
@@ -87,4 +91,4 @@ class OpenRouterClient:
         text = (choice or "").strip()
         if not text:
             raise AssistantUnavailable("assistant returned an empty answer")
-        return Answer(text=text, model=body.get("model") or self.settings.openrouter_model)
+        return Answer(text=text, model=body.get("model") or self.model)
