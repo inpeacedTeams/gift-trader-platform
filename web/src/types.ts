@@ -5,9 +5,22 @@ export type Opportunity = { gift_key: string; buy_marketplace: Marketplace; sell
 export type MarketResponse = { data_mode: "live-only"; markets: Snapshot[] };
 export type ArbitrageResponse = { data_mode: "live-only"; opportunities: Opportunity[]; unavailable: { marketplace: string; reason: string }[] };
 
+export type CollectionCard = {
+  id: number;
+  name?: string | null;
+  slug?: string | null;
+  chain_address: string;
+  gift_count: number;
+  listings_count: number;
+  floor_ton?: string | null;
+  image_url?: string | null;
+};
+export type CollectionPage = { data_mode: string; items: CollectionCard[]; page: number; page_size: number; total: number; has_next: boolean };
+
 export type GiftCard = {
   id: number;
   canonical_id: string;
+  collection_id?: number | null;
   collection_name?: string | null;
   name?: string | null;
   model?: string | null;
