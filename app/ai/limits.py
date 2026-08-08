@@ -33,6 +33,15 @@ class RateLimiter:
         hits.append(time.monotonic())
         return True
 
+    def check(self, user_id: int) -> tuple[bool, int]:
+        """Spend one call and report what is left.
+
+        Endpoints want both answers, and asking twice would leave a gap where
+        a second request slips through between the decision and the count.
+        """
+        allowed = self.allow(user_id)
+        return allowed, self.remaining(user_id)
+
 
 class TTLCache:
     """Tiny time based cache so repeated views do not re-bill the same answer."""

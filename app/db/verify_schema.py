@@ -13,6 +13,8 @@ REQUIRED_TABLES = {
     "market_events",
     "sniper_watches",
     "sniper_hits",
+    "strategies",
+    "strategy_runs",
     "trades",
     "source_statuses",
     "users",

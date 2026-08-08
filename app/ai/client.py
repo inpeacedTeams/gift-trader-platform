@@ -70,8 +70,9 @@ class OpenRouterClient:
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+        timeout = self.settings.openrouter_timeout_seconds
         try:
-            async with httpx.AsyncClient(timeout=self.settings.ai_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(API_URL, headers=self._headers(), json=payload)
         except httpx.HTTPError as exc:
             raise AssistantUnavailable(f"assistant request failed: {exc}") from exc
